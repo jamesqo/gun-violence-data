@@ -2,72 +2,51 @@ import shutil
 import requests
 import warnings
 
-from selenium.webdriver import PhantomJS
+from functools import partial
+#from selenium.common.exceptions import TimeoutException
+from selenium.webdriver import Chrome
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 from urllib.parse import urlencode
 from uuid import uuid4
 
-def get_uuids(driver):
-    print('GET', 'http://www.gunviolencearchive.org/query')
-    driver.get('http://www.gunviolencearchive.org/query')
-    query_id = driver.find_element_by_name('query[query_id]').get_property('value')
-    form_build_id = driver.find_element_by_name('form_build_id').get_property('value')
-    return query_id, form_build_id
+def uuid_is_present(driver, _):
+    form_wrapper = driver.find_element_by_css_selector('.filter-outer.form-wrapper')
+    form_wrapper_id = form_wrapper.get_attribute('id')
+    return 'new' not in form_wrapper_id
 
 def main():
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', UserWarning)
-        driver = PhantomJS()
+        driver = Chrome()
 
-    query_id, form_build_id = get_uuids(driver)
-    uuid = uuid4()
+    url = 'http://www.gunviolencearchive.org/query'
+    print('GET', url)
+    driver.get(url)
 
-    form_data = {
-        'query[base_group][base_group_select]': 'And',
-        f'query[filters][{uuid}][type]': 'IncidentDate',
-        f'query[filters][{uuid}][outer_filter][weight]': '001',
-        f'query[filters][{uuid}][outer_filter][comparator]': 'is in',
-        f'query[filters][{uuid}][outer_filter][filter][field][date-from]': '4/1/2018',
-        f'query[filters][{uuid}][outer_filter][filter][field][date-to]': '4/2/2018',
-        'query[filters][new][type]': '',
-        'query[filters][outer_filter][weight]': '0.002',
-        'query[query_id]': query_id,
-        'form_build_id': form_build_id,
-        'form_id': 'gva_entry_query',
-        'op': 'Search',
-    }
-    params = urlencode(form_data)
-    url = f'http://www.gunviolencearchive.org/query?{params}'
+    filter_dropdown_trigger = driver.find_element_by_css_selector('.filter-dropdown-trigger')
+    filter_dropdown_trigger.click()
 
-    print('POST', url)
-    headers = '''
-    Host: www.gunviolencearchive.org
-    Connection: keep-alive
-    Cache-Control: max-age=0
-    Origin: http://www.gunviolencearchive.org
-    Upgrade-Insecure-Requests: 1
-    Content-Type: application/x-www-form-urlencoded
-    Save-Data: on
-    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.162 Safari/537.36
-    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
-    Referer: http://www.gunviolencearchive.org/query
-    Accept-Encoding: gzip, deflate
-    Accept-Language: en-US,en;q=0.9
-    Cookie: __cfduid=d0402f9d65212b4cca2ae4534effa46b31522690623; has_js=1; SESS193bf903d09f76bb11992108b9bcc263=zQN3CieZrm-7Ix9kOPZKq3QYNjXoSzgxgeYqU34n5hk
-    '''
-    headers = {line[:line.find(':')].strip(): line[line.find(':')+2:].strip() for line in headers.strip().split('\n')}
-    print(headers)
+    date_link = driver.find_element_by_link_text('Date')
+    date_link.click()
 
-    response = requests.post(url, headers)
-    print(f"POST status code: {response.status_code}")
+    predicate = partial(uuid_is_present, driver)
+    WebDriverWait(driver, timeout=15).until(predicate)
 
-    print('GET', f'http://www.gunviolencearchive.org/query/{query_id}')
-    driver.get(f'http://www.gunviolencearchive.org/query/{query_id}')
-    print([x.get_attribute('id') for x in driver.find_elements_by_css_selector('*')])
-    table_wrapper = driver.find_element_by_id('table-wrapper')
-    rows = table_wrapper.find_elements_by_class_name('odd') + \
-           table_wrapper.find_elements_by_class_name('even')
+    form_wrapper = driver.find_element_by_css_selector('.filter-outer.form-wrapper')
+    form_wrapper_id = form_wrapper.get_attribute('id')
+    print(form_wrapper_id)
+    start, end = len('edit-query-filters-'), form_wrapper_id.find('-outer-filter')
+    uuid = form_wrapper_id[start:end]
 
-    print(len(rows))
+    input_date_from_id = f'edit-query-filters-{uuid}-outer-filter-filter-field-date-from'
+    input_date_to_id = f'edit-query-filters-{uuid}-outer-filter-filter-field-date-to'
+    driver.execute_script(f'''
+    document.getElementById("{input_date_from_id}").value = "4/1/2018";
+    document.getElementById("{input_date_to_id}").value = "4/2/2018";
+    ''')
+
+    raise Exception()
 
 if __name__ == '__main__':
     main()
