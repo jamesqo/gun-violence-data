@@ -60,15 +60,15 @@ def _get_info(driver, tr):
         incident_url, source_url
 
 def main():
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', UserWarning)
-        driver = Chrome()
+    driver = Chrome()
 
     step = timedelta(days=7)
     start, end = GLOBAL_START, GLOBAL_START + step - timedelta(days=1)
+
     with open('stage1.csv', 'w', encoding='utf-8') as outfile:
         writer = csv.writer(outfile)
         writer.writerow(['date', 'state', 'city_or_county', 'address', 'n_killed', 'n_injured', 'incident_url', 'source_url'])
+
         while start <= GLOBAL_END:
             query(driver, start, end)
             process_batch(driver, writer)
@@ -133,7 +133,7 @@ def process_batch(driver, writer):
     last_url = driver.current_url
     base_url = last_url[:last_url.find('?')]
     last_url_query = urlparse(last_url).query
-    last_pageno = parse_qs(last_url_query)['page']
+    last_pageno = parse_qs(last_url_query)['page'][0]
 
     # NOTE: In true programmer fashion, the nth page is labeled '?page={n - 1}'
     process_page(driver, writer)
