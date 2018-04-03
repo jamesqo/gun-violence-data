@@ -24,6 +24,12 @@ def _uuid_is_present(driver, _):
     form_wrapper_id = form_wrapper.get_attribute('id')
     return 'new' not in form_wrapper_id
 
+def _click(driver, element):
+    # HACK HACK HACK
+    script = 'arguments[0].scrollIntoView();'
+    driver.execute_script(script, element)
+    element.click()
+
 def _get_value(driver, element):
     # HACK HACK HACK
     script = 'return arguments[0].innerText;'
@@ -67,10 +73,10 @@ def query(driver, start_date, end_date):
     driver.get(url)
 
     filter_dropdown_trigger = driver.find_element_by_css_selector('.filter-dropdown-trigger')
-    filter_dropdown_trigger.click()
+    _click(driver, filter_dropdown_trigger)
 
     date_link = driver.find_element_by_link_text('Date')
-    date_link.click()
+    _click(driver, date_link)
 
     predicate = partial(_uuid_is_present, driver)
     WebDriverWait(driver, timeout=15).until(predicate)
@@ -94,7 +100,7 @@ def query(driver, start_date, end_date):
     ''')
 
     form_submit = driver.find_element_by_id('edit-actions-execute')
-    form_submit.click()
+    _click(driver, form_submit)
 
 def process_batch(driver, writer):
     scrollable = driver.find_element_by_css_selector('.table-wrapper .scrollable')
@@ -106,7 +112,7 @@ def process_batch(driver, writer):
     # Since we want to write out incidents by ascending date, process pages that come later first.
     try:
         last_li = driver.find_element_by_css_selector('.pager-last.last')
-        last_li.click()
+        _click(driver, last_li)
     except NoSuchElementException:
         # A single page of results was returned.
         process_page(driver, writer)
