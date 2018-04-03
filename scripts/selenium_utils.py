@@ -1,4 +1,4 @@
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -14,8 +14,12 @@ def find_element_or_wait(self, by, value, ancestor=None, timeout=10):
         # Common case: the element is already loaded and we don't need to wait.
         return ancestor.find_element(by, value)
     except NoSuchElementException:
-        wait = WebDriverWait(self, timeout)
-        wait.until(EC.visibility_of_element_located((by, value)))
+        try:
+            wait = WebDriverWait(self, timeout)
+            wait.until(EC.visibility_of_element_located((by, value)))
+        except TimeoutException:
+            # Let the next find_element() call throw a NoSuchElementException.
+            pass
         return ancestor.find_element(by, value)
 
 def find_elements_or_wait(self, by, value, ancestor=None, timeout=10):
@@ -24,8 +28,12 @@ def find_elements_or_wait(self, by, value, ancestor=None, timeout=10):
         # Common case: the elements are already loaded and we don't need to wait.
         return ancestor.find_elements(by, value)
     except NoSuchElementException:
-        wait = WebDriverWait(self, timeout)
-        wait.until(EC.visibility_of_element_located((by, value)))
+        try:
+            wait = WebDriverWait(self, timeout)
+            wait.until(EC.visibility_of_element_located((by, value)))
+        except TimeoutException:
+            # Let the next find_elements() call throw a NoSuchElementException.
+            pass
         return ancestor.find_elements(by, value)
 
 def get_value(self, element, decode=True):

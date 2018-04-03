@@ -104,18 +104,16 @@ def query(driver, start_date, end_date):
     form_submit = driver.find_element_or_wait(By.ID, 'edit-actions-execute')
     driver.click(form_submit)
 
-    #wait = WebDriverWait(driver, timeout=10)
-    #wait.until(lambda driver: driver.has_page_loaded())
-
     # Extract the number of pages from the pager
     return driver.current_url, get_n_pages(driver)
 
 def get_n_pages(driver):
     try:
-        last_a = driver.find_element_or_wait(By.CSS_SELECTOR, 'a[title="Go to last page"]')
+        last_a = driver.find_element_or_wait(By.CSS_SELECTOR, 'a[title="Go to last page"]', timeout=1)
         last_url = last_a.get_attribute('href')
         form_data = urlparse(last_url).query
         n_pages = int(parse_qs(form_data)['page'][0]) + 1
+
         return n_pages
     except NoSuchElementException:
         tds = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive .odd td')
