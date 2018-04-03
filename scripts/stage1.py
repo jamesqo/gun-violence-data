@@ -13,7 +13,7 @@ from argparse import ArgumentParser
 from calendar import monthrange
 from datetime import date, timedelta
 from functools import partial
-from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 from selenium.webdriver import Chrome
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -26,12 +26,15 @@ DATE_FORMAT = '%#m/%#d/%Y' if platform.system() == 'Windows' else '%-m/%-d/%Y'
 MESSAGE_NO_INCIDENTS_AVAILABLE = 'There are currently no incidents available.'
 
 def parse_args():
-    parts = sys.argv[1].split('-')
-    if len(parts) == 2:
-        del sys.argv[1]
-    
+    targets_specific_month = False
+    if len(sys.argv) > 1:
+        parts = sys.argv[1].split('-')
+        if len(parts) == 2: # e.g. '02-2014'
+            targets_specific_month = True
+            del sys.argv[1]
+
     parser = ArgumentParser()
-    if len(parts) != 2:
+    if not targets_specific_month:
         parser.add_argument(
             'start_date',
             metavar='START',
@@ -61,7 +64,7 @@ def parse_args():
     )
 
     args = parser.parse_args()
-    if len(parts) == 2: # e.g. '02-2014'
+    if targets_specific_month:
         month, year = map(int, parts)
         end_day = monthrange(year, month)[1]
         
@@ -83,8 +86,8 @@ def query(driver, start_date, end_date):
     date_link = driver.find_element_or_wait(By.LINK_TEXT, 'Date')
     driver.click(date_link)
 
-    input_date_from = driver.find_element_or_wait(By.CSS_SELECTOR, 'input[class$="filter-field-date-from"]')
-    input_date_to = driver.find_element_or_wait(By.CSS_SELECTOR, 'input[class$="filter-field-date-to"]')
+    input_date_from = driver.find_element_or_wait(By.CSS_SELECTOR, 'input[id$="filter-field-date-from"]')
+    input_date_to = driver.find_element_or_wait(By.CSS_SELECTOR, 'input[id$="filter-field-date-to"]')
     start_date_str = start_date.strftime(DATE_FORMAT)
     end_date_str = end_date.strftime(DATE_FORMAT)
 
