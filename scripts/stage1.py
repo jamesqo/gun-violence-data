@@ -138,8 +138,9 @@ async def main():
         while start <= global_end:
             query_url, n_pages = query(driver, start, end)
             if n_pages > 0:
-                await serializer.write_batch(query_url, n_pages)
+                serializer.write_batch(query_url, n_pages)
             start, end = end + timedelta(days=1), min(global_end, end + step)
+        await serializer.flush_writes()
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()

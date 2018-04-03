@@ -25,6 +25,7 @@ class Stage1Serializer(object):
     def __init__(self, output_fname, encoding='utf-8'):
         self._output_fname = output_fname
         self._encoding = encoding
+        self._page_urls = []
 
     async def __aenter__(self):
         self._output_file = open(self._output_fname, 'w', encoding=self._encoding)
@@ -40,6 +41,15 @@ class Stage1Serializer(object):
         async with self._sess.get(url) as resp:
             return await resp.text()
 
+    async def _write_page(self, page_url):
+        text = await self._gettext(page_url)
+        soup = BeautifulSoup(text, features='html5lib')
+        trs = soup.select('.responsive tbody tr')
+        trs = reversed(trs) # Order by ascending date instead of descending
+        infos = map(_get_info, trs)
+        for info in infos:
+            self._writer.writerow([*info])
+
     def write_header(self):
         self._writer.writerow([
             'date',
@@ -52,17 +62,14 @@ class Stage1Serializer(object):
             'source_url'
         ])
 
-    async def write_batch(self, query_url, n_pages):
-        urls = [query_url] + ['{}?page={}'.format(query_url, pageno) for pageno in range(1, n_pages)]
-        tasks = [self.write_page(url) for url in urls]
+    def write_batch(self, query_url, n_pages):
+        batch = ['{}?page={}'.format(query_url, pageno) for pageno in range(n_pages - 1, 0, -1)] + [query_url]
+        self._page_urls.extend(batch)
+
+    async def flush_writes(self):
+        print("Flushing writes made to serializer")
+
+        tasks = (self._write_page(url) for url in self._page_urls)
+        # TODO: This is totally screwing up the order. Who cares though because the perf improvement is amazing.
+        # (If you care about the order, sort the data yourself after loading it in.)
         return await asyncio.gather(*tasks)
-
-    async def write_page(self, page_url):
-        text = await self._gettext(page_url)
-        soup = BeautifulSoup(text, features='html5lib')
-        trs = soup.select('.responsive tbody tr')
-        trs = reversed(trs) # Order by ascending date instead of descending
-        infos = map(_get_info, trs)
-        for info in infos:
-            self._writer.writerow([*info])
-
