@@ -5,6 +5,8 @@ import platform
 import sys
 import warnings
 
+import selenium_utils
+
 from argparse import ArgumentParser
 from calendar import monthrange
 from datetime import date, timedelta
@@ -19,7 +21,7 @@ from urllib.parse import parse_qs, urlparse
 MESSAGE_NO_INCIDENTS_AVAILABLE = 'There are currently no incidents available.'
 
 def _uuid_is_present(driver, _):
-    form_wrapper = _find_element(By.CSS_SELECTOR, '.filter-outer.form-wrapper', driver)
+    form_wrapper = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-outer.form-wrapper')
     # TODO: It's possible that the element could become stale in between these calls.
     form_wrapper_id = None
     while form_wrapper_id is None:
@@ -27,7 +29,7 @@ def _uuid_is_present(driver, _):
             form_wrapper_id = form_wrapper.get_attribute('id')
         except StaleElementReferenceException:
             # Remember, this code is being run while we're waiting for the form wrapper to be updated.
-            # There's a real chance that update could happen in between the _find_element and get_attribute calls.
+            # There's a real chance that update could happen in between the find_element_or_wait and get_attribute calls.
             continue
     return 'new' not in form_wrapper_id
 
@@ -37,49 +39,17 @@ def _fmt_date(date):
     fmt_string = '%#m/%#d/%Y' if platform.system() == 'Windows' else '%-m/%-d/%Y'
     return date.strftime(fmt_string)
 
-def _click(driver, element):
-    # HACK HACK HACK
-    script = 'arguments[0].scrollIntoView();'
-    driver.execute_script(script, element)
-    element.click()
-
-def _get_value(driver, element, decode=True):
-    # HACK HACK HACK
-    property = 'innerText' if decode else 'innerHTML'
-    script = 'return arguments[0].{};'.format(property)
-    return driver.execute_script(script, element)
-
-def _find_element(by, value, driver, ancestor=None, timeout=15):
-    ancestor = ancestor or driver
-    try:
-        # Common case: the element is already loaded and we don't need to wait.
-        return ancestor.find_element(by, value)
-    except NoSuchElementException:
-        wait = WebDriverWait(driver, timeout)
-        wait.until(EC.visibility_of_element_located((by, value)))
-        return ancestor.find_element(by, value)
-
-def _find_elements(by, value, driver, ancestor=None, timeout=15):
-    ancestor = ancestor or driver
-    try:
-        # Common case: the elements are already loaded and we don't need to wait.
-        return ancestor.find_elements(by, value)
-    except NoSuchElementException:
-        wait = WebDriverWait(driver, timeout)
-        wait.until(EC.visibility_of_element_located((by, value)))
-        return ancestor.find_elements(by, value)
-
 def _get_info(driver, tr):
-    tds = _find_elements(By.CSS_SELECTOR, 'td', driver, ancestor=tr)
+    tds = driver.find_elements_or_wait(By.CSS_SELECTOR, 'td', ancestor=tr)
     assert len(tds) == 7
     date, state, city_or_county, address, \
         n_killed, n_injured = map(partial(_get_value, driver), tds[:6])
     n_killed, n_injured = map(int, [n_killed, n_injured])
 
-    incident_a = _find_element(By.LINK_TEXT, 'View Incident', driver, ancestor=tds[6])
+    incident_a = driver.find_element_or_wait(By.LINK_TEXT, 'View Incident', ancestor=tds[6])
     incident_url = incident_a.get_attribute('href')
     try:
-        source_a = _find_element(By.LINK_TEXT, 'View Source', driver, ancestor=tds[6])
+        source_a = driver.find_element_or_wait(By.LINK_TEXT, 'View Source', ancestor=tds[6])
         source_url = source_a.get_attribute('href')
     except NoSuchElementException:
         source_url = ''
@@ -159,17 +129,17 @@ def query(driver, start_date, end_date):
     print('GET', url)
     driver.get(url)
 
-    filter_dropdown_trigger = _find_element(By.CSS_SELECTOR, '.filter-dropdown-trigger', driver)
+    filter_dropdown_trigger = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-dropdown-trigger')
     _click(driver, filter_dropdown_trigger)
 
-    date_link = _find_element(By.LINK_TEXT, 'Date', driver)
+    date_link = driver.find_element_or_wait(By.LINK_TEXT, 'Date')
     _click(driver, date_link)
 
     wait = WebDriverWait(driver, timeout=15)
     predicate = partial(_uuid_is_present, driver)
     wait.until(predicate)
 
-    form_wrapper = _find_element(By.CSS_SELECTOR, '.filter-outer.form-wrapper', driver)
+    form_wrapper = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-outer.form-wrapper')
     form_wrapper_id = form_wrapper.get_attribute('id')
     start, end = len('edit-query-filters-'), form_wrapper_id.find('-outer-filter')
     uuid = form_wrapper_id[start:end]
@@ -191,11 +161,11 @@ def query(driver, start_date, end_date):
     driver.execute_script(script)
 
     print('GET', '{results_url}')
-    form_submit = _find_element(By.ID, 'edit-actions-execute', driver)
+    form_submit = driver.find_element_or_wait(By.ID, 'edit-actions-execute')
     _click(driver, form_submit)
 
 def process_batch(driver, writer):
-    tds = _find_elements(By.CSS_SELECTOR, '.responsive .odd td', driver)
+    tds = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive .odd td')
     if len(tds) == 1 and _get_value(driver, tds[0]) == MESSAGE_NO_INCIDENTS_AVAILABLE:
         # Nil query results.
         return
@@ -204,7 +174,7 @@ def process_batch(driver, writer):
     # Since we want to write out incidents by ascending date, process pages that come later first.
     try:
         print('GET', '{}?page={{last_pageno}}'.format(base_url))
-        last_li = _find_element(By.CSS_SELECTOR, '.pager-last.last', driver)
+        last_li = driver.find_element_or_wait(By.CSS_SELECTOR, '.pager-last.last')
         _click(driver, last_li)
     except NoSuchElementException:
         # A single page of results was returned.
@@ -231,10 +201,7 @@ def process_batch(driver, writer):
     process_page(driver, writer)
 
 def process_page(driver, writer):
-    trs = _find_elements(By.CSS_SELECTOR,
-                         '.responsive .odd, .responsive .even',
-                         driver)
-
+    trs = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive .odd, .responsive .even')
     trs = reversed(trs) # Order by ascending date instead of descending
     infos = map(partial(_get_info, driver), trs)
     for info in infos:
