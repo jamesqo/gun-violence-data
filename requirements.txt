@@ -1,1 +1,2 @@
-git+https://github.com/cryzed/Selenium-Requests
+requests
+selenium
