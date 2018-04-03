@@ -1,10 +1,11 @@
 import csv
 import dateutil.parser as dateparser
+import logging as log
 import platform
 import sys
 import warnings
 
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 from calendar import monthrange
 from datetime import date, timedelta
 from functools import partial
@@ -68,16 +69,10 @@ def _get_info(driver, tr):
         n_killed, n_injured = map(partial(_get_value, driver), tds[:6])
     n_killed, n_injured = map(int, [n_killed, n_injured])
 
-    incident_a = _find_element(By.LINK_TEXT,
-                               'View Incident',
-                               driver,
-                               ancestor=tds[6])
+    incident_a = _find_element(By.LINK_TEXT, 'View Incident', driver, ancestor=tds[6])
     incident_url = incident_a.get_attribute('href')
     try:
-        source_a = _find_element(By.LINK_TEXT,
-                                 'View Source',
-                                 driver,
-                                 ancestor=tds[6])
+        source_a = _find_element(By.LINK_TEXT, 'View Source', driver, ancestor=tds[6])
         source_url = source_a.get_attribute('href')
     except NoSuchElementException:
         source_url = ''
@@ -88,6 +83,7 @@ def _get_info(driver, tr):
 
 def main():
     args = parse_args()
+    log.basicConfig(level=args.log_level)
     driver = Chrome()
 
     step = timedelta(days=1)
@@ -104,40 +100,54 @@ def main():
             start, end = end + timedelta(days=1), min(global_end, end + step)
 
 def parse_args():
-    if len(sys.argv) == 2:
-        month_str = sys.argv[1] # e.g. '02-2014'
-        date = dateparser.parse(month_str)
-        month, year = date.month, date.year
+    parts = sys.argv[1].split('-')
+    if len(parts) == 2:
+        del sys.argv[1]
+    
+    parser = ArgumentParser()
+    if len(parts) != 2:
+        parser.add_argument(
+            'start_date',
+            metavar='START',
+            help="set start date",
+            action='store',
+        )
+        parser.add_argument(
+            'end_date',
+            metavar='END',
+            help="set end date",
+            action='store',
+        )
+        parser.add_argument(
+            'output_file',
+            metavar='OUTFILE',
+            help="set output file",
+            action='store',
+        )
+
+    parser.add_argument(
+        '-d', '--debug',
+        help="show debug information",
+        action='store_const',
+        dest='log_level',
+        const=log.DEBUG,
+        default=log.WARNING,
+    )
+
+    args = parser.parse_args()
+    if len(parts) == 2: # e.g. '02-2014'
+        month, year = map(int, parts)
         end_day = monthrange(year, month)[1]
         
-        args = Namespace()
         args.start_date = '{}-01-{}'.format(month, year)
         args.end_date = '{}-{}-{}'.format(month, end_day, year)
         args.output_file = 'stage1.{:02d}.{:04d}.csv'.format(month, year)
-        return args
-    
-    parser = ArgumentParser()
-    parser.add_argument(
-        'start_date',
-        metavar='START',
-        help="set start date",
-        action='store',
-    )
-    parser.add_argument(
-        'end_date',
-        metavar='END',
-        help="set end date",
-        action='store',
-    )
-    parser.add_argument(
-        'output_file',
-        metavar='OUTFILE',
-        help="set output file",
-        action='store',
-    )
-    return parser.parse_args()
+    return args
+
 
 def query(driver, start_date, end_date):
+    log.debug("Querying incidents between {:%m/%d/%Y} and {:%m/%d/%Y}".format(start_date, end_date))
+
     url = 'http://www.gunviolencearchive.org/query'
     print('GET', url)
     driver.get(url)
