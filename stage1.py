@@ -13,7 +13,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from urllib.parse import parse_qs, urlencode, urlparse
 from uuid import uuid4
 
-GLOBAL_START = date(year=2013, month=1, day=1)
+#GLOBAL_START = date(year=2013, month=1, day=1)
+GLOBAL_START = date(year=2013, month=12, day=1)
 #GLOBAL_END = date(year=2018, month=4, day=1)
 GLOBAL_END = date(year=2014, month=4, day=1)
 
@@ -133,7 +134,7 @@ def process_batch(driver, writer):
     last_url = driver.current_url
     base_url = last_url[:last_url.find('?')]
     last_url_query = urlparse(last_url).query
-    last_pageno = parse_qs(last_url_query)['page'][0]
+    last_pageno = int(parse_qs(last_url_query)['page'][0])
 
     # NOTE: In true programmer fashion, the nth page is labeled '?page={n - 1}'
     process_page(driver, writer)
