@@ -1,9 +1,11 @@
 import csv
 import dateutil.parser as dateparser
 import platform
+import sys
 import warnings
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
+from calendar import monthrange
 from datetime import date, timedelta
 from functools import partial
 from selenium.common.exceptions import NoSuchElementException
@@ -72,6 +74,18 @@ def main():
             start, end = end + timedelta(days=1), min(global_end, end + step)
 
 def parse_args():
+    if len(sys.argv) == 2:
+        month_str = sys.argv[1] # e.g. '02-2014'
+        date = dateparser.parse(month_str)
+        month, year = date.month, date.year
+        end_day = monthrange(year, month)[1]
+        
+        args = Namespace()
+        args.start_date = '{}-01-{}'.format(month, year)
+        args.end_date = '{}-{}-{}'.format(month, end_day, year)
+        args.output_file = 'stage1.{:02d}.{:04d}.csv'.format(month, year)
+        return args
+    
     parser = ArgumentParser()
     parser.add_argument(
         'start_date',
