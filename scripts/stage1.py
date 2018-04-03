@@ -70,42 +70,6 @@ def parse_args():
         args.output_file = 'stage1.{:02d}.{:04d}.csv'.format(month, year)
     return args
 
-def get_info(driver, tr):
-    tds = driver.find_elements_or_wait(By.CSS_SELECTOR, 'td', ancestor=tr)
-    assert len(tds) == 7
-    date, state, city_or_county, address, n_killed, n_injured = map(driver.get_value, tds[:6])
-    n_killed, n_injured = map(int, [n_killed, n_injured])
-
-    incident_a = driver.find_element_or_wait(By.LINK_TEXT, 'View Incident', ancestor=tds[6])
-    incident_url = incident_a.get_attribute('href')
-
-    try:
-        source_a = driver.find_element_or_wait(By.LINK_TEXT, 'View Source', ancestor=tds[6])
-        source_url = source_a.get_attribute('href')
-    except NoSuchElementException:
-        source_url = ''
-
-    return date, state, city_or_county, address, n_killed, n_injured, incident_url, source_url
-
-def main():
-    args = parse_args()
-    log.basicConfig(level=args.log_level)
-    driver = Chrome()
-
-    step = timedelta(days=1)
-    global_start, global_end = dateparser.parse(args.start_date), dateparser.parse(args.end_date)
-    start, end = global_start, global_start + step - timedelta(days=1)
-
-    with open(args.output_file, 'w', encoding='utf-8') as outfile:
-        writer = csv.writer(outfile)
-        writer.writerow(['date', 'state', 'city_or_county', 'address', 'n_killed', 'n_injured', 'incident_url', 'source_url'])
-
-        while start <= global_end:
-            query(driver, start, end)
-            process_batch(driver, writer)
-            start, end = end + timedelta(days=1), min(global_end, end + step)
-
-
 def query(driver, start_date, end_date):
     print("Querying incidents between {:%m/%d/%Y} and {:%m/%d/%Y}".format(start_date, end_date))
 
@@ -119,7 +83,7 @@ def query(driver, start_date, end_date):
     date_link = driver.find_element_or_wait(By.LINK_TEXT, 'Date')
     driver.click(date_link)
 
-    def _uuid_is_present(driver, _):
+    def uuid_is_present(driver, _):
         form_wrapper = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-outer.form-wrapper')
         # TODO: It's possible that the element could become stale in between these calls.
         form_wrapper_id = None
@@ -133,7 +97,7 @@ def query(driver, start_date, end_date):
         return 'new' not in form_wrapper_id
 
     wait = WebDriverWait(driver, timeout=10)
-    predicate = partial(_uuid_is_present, driver)
+    predicate = partial(uuid_is_present, driver)
     wait.until(predicate)
 
     form_wrapper = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-outer.form-wrapper')
@@ -202,6 +166,41 @@ def process_page(driver, writer):
     infos = map(partial(get_info, driver), trs)
     for info in infos:
         writer.writerow([*info])
+
+def get_info(driver, tr):
+    tds = driver.find_elements_or_wait(By.CSS_SELECTOR, 'td', ancestor=tr)
+    assert len(tds) == 7
+    date, state, city_or_county, address, n_killed, n_injured = map(driver.get_value, tds[:6])
+    n_killed, n_injured = map(int, [n_killed, n_injured])
+
+    incident_a = driver.find_element_or_wait(By.LINK_TEXT, 'View Incident', ancestor=tds[6])
+    incident_url = incident_a.get_attribute('href')
+
+    try:
+        source_a = driver.find_element_or_wait(By.LINK_TEXT, 'View Source', ancestor=tds[6])
+        source_url = source_a.get_attribute('href')
+    except NoSuchElementException:
+        source_url = ''
+
+    return date, state, city_or_county, address, n_killed, n_injured, incident_url, source_url
+
+def main():
+    args = parse_args()
+    log.basicConfig(level=args.log_level)
+    driver = Chrome()
+
+    step = timedelta(days=1)
+    global_start, global_end = dateparser.parse(args.start_date), dateparser.parse(args.end_date)
+    start, end = global_start, global_start + step - timedelta(days=1)
+
+    with open(args.output_file, 'w', encoding='utf-8') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerow(['date', 'state', 'city_or_county', 'address', 'n_killed', 'n_injured', 'incident_url', 'source_url'])
+
+        while start <= global_end:
+            query(driver, start, end)
+            process_batch(driver, writer)
+            start, end = end + timedelta(days=1), min(global_end, end + step)
 
 if __name__ == '__main__':
     main()
