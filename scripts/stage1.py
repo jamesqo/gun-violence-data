@@ -98,9 +98,10 @@ def query(driver, start_date, end_date):
     '''.format(start_date_str, end_date_str)
     driver.execute_script(script, input_date_from, input_date_to)
 
-    print('GET', '{results_url}')
     form_submit = driver.find_element_or_wait(By.ID, 'edit-actions-execute')
     driver.click(form_submit)
+
+    return driver.current_url
 
 def process_batch(driver, writer):
     tds = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive .odd td')
@@ -111,7 +112,6 @@ def process_batch(driver, writer):
     base_url = driver.current_url
     # Since we want to write out incidents by ascending date, process pages that come later first.
     try:
-        print('GET', '{}?page={{last_pageno}}'.format(base_url))
         last_li = driver.find_element_or_wait(By.CSS_SELECTOR, '.pager-last.last')
         driver.click(last_li)
     except NoSuchElementException:
@@ -172,7 +172,7 @@ def main():
         writer.writerow(['date', 'state', 'city_or_county', 'address', 'n_killed', 'n_injured', 'incident_url', 'source_url'])
 
         while start <= global_end:
-            query(driver, start, end)
+            query_url = query(driver, start, end)
             process_batch(driver, writer)
             start, end = end + timedelta(days=1), min(global_end, end + step)
 
