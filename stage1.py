@@ -57,7 +57,7 @@ def main():
     args = parse_args()
     driver = Chrome()
 
-    step = timedelta(days=7)
+    step = timedelta(days=1)
     global_start, global_end = dateparser.parse(args.start_date), dateparser.parse(args.end_date)
     start, end = global_start, global_start + step - timedelta(days=1)
 
