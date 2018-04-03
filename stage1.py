@@ -90,7 +90,6 @@ def query(driver, start_date, end_date):
 
     form_wrapper = driver.find_element_by_css_selector('.filter-outer.form-wrapper')
     form_wrapper_id = form_wrapper.get_attribute('id')
-    print(form_wrapper_id)
     start, end = len('edit-query-filters-'), form_wrapper_id.find('-outer-filter')
     uuid = form_wrapper_id[start:end]
 
@@ -110,6 +109,7 @@ def query(driver, start_date, end_date):
                end_date_str=end_date_str)
     driver.execute_script(script)
 
+    print('GET', '{results_url}')
     form_submit = driver.find_element_by_id('edit-actions-execute')
     _click(driver, form_submit)
 
@@ -139,11 +139,13 @@ def process_batch(driver, writer):
     process_page(driver, writer)
     for pageno in range(last_pageno - 1, 0, -1):
         url = '{}?page={}'.format(base_url, pageno)
+        print('GET', url)
         driver.get(url)
         process_page(driver, writer)
 
     # First page has no '?page=' query parameter
     url = base_url
+    print('GET', url)
     driver.get(url)
     process_page(driver, writer)
 
