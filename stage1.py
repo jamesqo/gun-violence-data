@@ -31,9 +31,10 @@ def _click(driver, element):
     driver.execute_script(script, element)
     element.click()
 
-def _get_value(driver, element):
+def _get_value(driver, element, decode=True):
     # HACK HACK HACK
-    script = 'return arguments[0].innerText;'
+    property = 'innerText' if decode else 'innerHTML'
+    script = 'return arguments[0].{};'.format(property)
     return driver.execute_script(script, element)
 
 def _get_info(driver, tr):
@@ -132,8 +133,7 @@ def query(driver, start_date, end_date):
     _click(driver, form_submit)
 
 def process_batch(driver, writer):
-    scrollable = driver.find_element_by_css_selector('.table-wrapper .scrollable')
-    tds = scrollable.find_elements_by_css_selector('tr.odd td')
+    tds = driver.find_elements_by_css_selector('.responsive .odd td')
     if len(tds) == 1 and _get_value(driver, tds[0]) == MESSAGE_NO_INCIDENTS_AVAILABLE:
         # Nil query results.
         return
@@ -169,8 +169,7 @@ def process_batch(driver, writer):
     process_page(driver, writer)
 
 def process_page(driver, writer):
-    scrollable = driver.find_element_by_css_selector('.table-wrapper .scrollable')
-    trs = scrollable.find_elements_by_css_selector('tr.odd, tr.even')
+    trs = driver.find_elements_by_css_selector('.responsive .odd, .responsive .even')
 
     trs = reversed(trs) # Order by ascending date instead of descending
     infos = map(partial(_get_info, driver), trs)
