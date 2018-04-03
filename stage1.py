@@ -121,8 +121,10 @@ def process_batch(driver, writer):
         # Nil query results.
         return
 
+    base_url = driver.current_url
     # Since we want to write out incidents by ascending date, process pages that come later first.
     try:
+        print('GET', '{}?page={{last_pageno}}'.format(base_url))
         last_li = driver.find_element_by_css_selector('.pager-last.last')
         _click(driver, last_li)
     except NoSuchElementException:
@@ -132,7 +134,6 @@ def process_batch(driver, writer):
 
     # Now we're on the last page. Process each page and navigate forwards.
     last_url = driver.current_url
-    base_url = last_url[:last_url.find('?')]
     last_url_query = urlparse(last_url).query
     last_pageno = int(parse_qs(last_url_query)['page'][0])
 
