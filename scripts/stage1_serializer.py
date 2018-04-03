@@ -11,14 +11,13 @@ def _get_info(tr):
     assert len(tds) == 7
 
     date, state, city_or_county, address, n_killed, n_injured = [td.contents[0] for td in tds[:6]]
-    print(locals())
     n_killed, n_injured = map(int, [n_killed, n_injured])
 
     incident_a = tds[6].find('a', string='View Incident')
     incident_url = GVA_DOMAIN + incident_a['href']
 
     source_a = tds[6].find('a', string='View Source')
-    source_url = GVA_DOMAIN + (source_a['href'] if source_a else '')
+    source_url = source_a['href'] if source_a else ''
 
     return date, state, city_or_county, address, n_killed, n_injured, incident_url, source_url
 
@@ -61,7 +60,7 @@ class Stage1Serializer(object):
     async def write_page(self, page_url):
         text = await self._gettext(page_url)
         soup = BeautifulSoup(text, features='html5lib')
-        trs = soup.select('.responsive .odd, .responsive .even')
+        trs = soup.select('.responsive tbody tr')
         trs = reversed(trs) # Order by ascending date instead of descending
         infos = map(_get_info, trs)
         for info in infos:

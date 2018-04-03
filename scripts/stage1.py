@@ -79,7 +79,7 @@ def parse_args():
 def query(driver, start_date, end_date):
     print("Querying incidents between {:%m/%d/%Y} and {:%m/%d/%Y}".format(start_date, end_date))
 
-    driver.get_verbose('http://www.gunviolencearchive.org/query')
+    driver.get('http://www.gunviolencearchive.org/query')
 
     # Click "Add a rule"
     filter_dropdown_trigger = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-dropdown-trigger')
@@ -116,7 +116,7 @@ def get_n_pages(driver):
 
         return n_pages
     except NoSuchElementException:
-        tds = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive .odd td')
+        tds = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive tbody tr td')
         if len(tds) == 1 and driver.get_value(tds[0]) == MESSAGE_NO_INCIDENTS_AVAILABLE:
             # Nil query results.
             return 0
