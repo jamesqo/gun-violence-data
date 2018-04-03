@@ -7,7 +7,7 @@ import platform
 import sys
 import warnings
 
-import selenium_utils
+import ..selenium_utils
 
 from argparse import ArgumentParser
 from calendar import monthrange
