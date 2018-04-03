@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import csv
 import dateutil.parser as dateparser
 import logging as log
@@ -11,10 +13,9 @@ from argparse import ArgumentParser
 from calendar import monthrange
 from datetime import date, timedelta
 from functools import partial
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver import Chrome
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from urllib.parse import parse_qs, urlparse
 
@@ -43,7 +44,7 @@ def _get_info(driver, tr):
     tds = driver.find_elements_or_wait(By.CSS_SELECTOR, 'td', ancestor=tr)
     assert len(tds) == 7
     date, state, city_or_county, address, \
-        n_killed, n_injured = map(partial(_get_value, driver), tds[:6])
+        n_killed, n_injured = map(driver.get_value, tds[:6])
     n_killed, n_injured = map(int, [n_killed, n_injured])
 
     incident_a = driver.find_element_or_wait(By.LINK_TEXT, 'View Incident', ancestor=tds[6])
@@ -130,10 +131,10 @@ def query(driver, start_date, end_date):
     driver.get(url)
 
     filter_dropdown_trigger = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-dropdown-trigger')
-    _click(driver, filter_dropdown_trigger)
+    driver.click(filter_dropdown_trigger)
 
     date_link = driver.find_element_or_wait(By.LINK_TEXT, 'Date')
-    _click(driver, date_link)
+    driver.click(date_link)
 
     wait = WebDriverWait(driver, timeout=15)
     predicate = partial(_uuid_is_present, driver)
@@ -162,11 +163,11 @@ def query(driver, start_date, end_date):
 
     print('GET', '{results_url}')
     form_submit = driver.find_element_or_wait(By.ID, 'edit-actions-execute')
-    _click(driver, form_submit)
+    driver.click(form_submit)
 
 def process_batch(driver, writer):
     tds = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive .odd td')
-    if len(tds) == 1 and _get_value(driver, tds[0]) == MESSAGE_NO_INCIDENTS_AVAILABLE:
+    if len(tds) == 1 and driver.get_value(tds[0]) == MESSAGE_NO_INCIDENTS_AVAILABLE:
         # Nil query results.
         return
 
@@ -175,7 +176,7 @@ def process_batch(driver, writer):
     try:
         print('GET', '{}?page={{last_pageno}}'.format(base_url))
         last_li = driver.find_element_or_wait(By.CSS_SELECTOR, '.pager-last.last')
-        _click(driver, last_li)
+        driver.click(last_li)
     except NoSuchElementException:
         # A single page of results was returned.
         process_page(driver, writer)
