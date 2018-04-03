@@ -7,7 +7,7 @@ import platform
 import sys
 import warnings
 
-import ..selenium_utils
+import selenium_utils
 
 from argparse import ArgumentParser
 from calendar import monthrange
@@ -75,48 +75,25 @@ def query(driver, start_date, end_date):
 
     driver.get_verbose('http://www.gunviolencearchive.org/query')
 
+    # Click "Add a rule"
     filter_dropdown_trigger = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-dropdown-trigger')
     driver.click(filter_dropdown_trigger)
 
+    # Click "Date"
     date_link = driver.find_element_or_wait(By.LINK_TEXT, 'Date')
     driver.click(date_link)
 
-    def uuid_is_present(driver, _):
-        form_wrapper = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-outer.form-wrapper')
-        # TODO: It's possible that the element could become stale in between these calls.
-        form_wrapper_id = None
-        while form_wrapper_id is None:
-            try:
-                form_wrapper_id = form_wrapper.get_attribute('id')
-            except StaleElementReferenceException:
-                # Remember, this code is being run while we're waiting for the form wrapper to be updated.
-                # There's a real chance that update could happen in between the find_element_or_wait and get_attribute calls.
-                continue
-        return 'new' not in form_wrapper_id
-
-    wait = WebDriverWait(driver, timeout=10)
-    predicate = partial(uuid_is_present, driver)
-    wait.until(predicate)
-
-    form_wrapper = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-outer.form-wrapper')
-    form_wrapper_id = form_wrapper.get_attribute('id')
-    start, end = len('edit-query-filters-'), form_wrapper_id.find('-outer-filter')
-    uuid = form_wrapper_id[start:end]
-
-    input_date_from_id = 'edit-query-filters-{}-outer-filter-filter-field-date-from'.format(uuid)
-    input_date_to_id = 'edit-query-filters-{}-outer-filter-filter-field-date-to'.format(uuid)
+    input_date_from = driver.find_element_or_wait(By.CSS_SELECTOR, 'input[class$="filter-field-date-from"]')
+    input_date_to = driver.find_element_or_wait(By.CSS_SELECTOR, 'input[class$="filter-field-date-to"]')
     start_date_str = start_date.strftime(DATE_FORMAT)
     end_date_str = end_date.strftime(DATE_FORMAT)
 
     # HACK HACK HACK
     script = '''
-    document.getElementById("{input_date_from_id}").value = "{start_date_str}";
-    document.getElementById("{input_date_to_id}").value = "{end_date_str}";
-    '''.format(input_date_from_id=input_date_from_id,
-               input_date_to_id=input_date_to_id,
-               start_date_str=start_date_str,
-               end_date_str=end_date_str)
-    driver.execute_script(script)
+    arguments[0].value = "{}";
+    arguments[1].value = "{}";
+    '''.format(start_date_str, end_date_str)
+    driver.execute_script(script, input_date_from, input_date_to)
 
     print('GET', '{results_url}')
     form_submit = driver.find_element_or_wait(By.ID, 'edit-actions-execute')
