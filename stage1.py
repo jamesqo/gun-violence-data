@@ -10,13 +10,15 @@ from datetime import date, timedelta
 from functools import partial
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import Chrome
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from urllib.parse import parse_qs, urlparse
 
 MESSAGE_NO_INCIDENTS_AVAILABLE = 'There are currently no incidents available.'
 
 def _uuid_is_present(driver, _):
-    form_wrapper = driver.find_element_by_css_selector('.filter-outer.form-wrapper')
+    form_wrapper = _find_element(By.CSS_SELECTOR, '.filter-outer.form-wrapper', driver)
     # TODO: It's possible that the element could become stale in between these calls.
     form_wrapper_id = form_wrapper.get_attribute('id')
     return 'new' not in form_wrapper_id
@@ -39,16 +41,44 @@ def _get_value(driver, element, decode=True):
     script = 'return arguments[0].{};'.format(property)
     return driver.execute_script(script, element)
 
+def _find_element(by, value, driver, ancestor=None, timeout=15):
+    ancestor = ancestor or driver
+    try:
+        # Common case: the element is already loaded and we don't need to wait.
+        return ancestor.find_element(by, value)
+    except NoSuchElementException:
+        wait = WebDriverWait(driver, timeout)
+        wait.until(EC.visibility_of_element_located((by, value)))
+        return ancestor.find_element(by, value)
+
+def _find_elements(by, value, driver, ancestor=None, timeout=15):
+    ancestor = ancestor or driver
+    try:
+        # Common case: the elements are already loaded and we don't need to wait.
+        return ancestor.find_elements(by, value)
+    except NoSuchElementException:
+        wait = WebDriverWait(driver, timeout)
+        wait.until(EC.visibility_of_element_located((by, value)))
+        return ancestor.find_elements(by, value)
+
 def _get_info(driver, tr):
-    tds = tr.find_elements_by_css_selector('td')
+    tds = _find_elements(By.CSS_SELECTOR, 'td', driver, ancestor=tr)
     assert len(tds) == 7
     date, state, city_or_county, address, \
         n_killed, n_injured = map(partial(_get_value, driver), tds[:6])
     n_killed, n_injured = map(int, [n_killed, n_injured])
 
-    incident_url = tds[6].find_element_by_link_text('View Incident').get_attribute('href')
+    incident_a = _find_element(By.LINK_TEXT,
+                               'View Incident',
+                               driver,
+                               ancestor=tds[6])
+    incident_url = incident_a.get_attribute('href')
     try:
-        source_url = tds[6].find_element_by_link_text('View Source').get_attribute('href')
+        source_a = _find_element(By.LINK_TEXT,
+                                 'View Source',
+                                 driver,
+                                 ancestor=tds[6])
+        source_url = source_a.get_attribute('href')
     except NoSuchElementException:
         source_url = ''
 
@@ -112,16 +142,17 @@ def query(driver, start_date, end_date):
     print('GET', url)
     driver.get(url)
 
-    filter_dropdown_trigger = driver.find_element_by_css_selector('.filter-dropdown-trigger')
+    filter_dropdown_trigger = _find_element(By.CSS_SELECTOR, '.filter-dropdown-trigger', driver)
     _click(driver, filter_dropdown_trigger)
 
-    date_link = driver.find_element_by_link_text('Date')
+    date_link = _find_element(By.LINK_TEXT, 'Date', driver)
     _click(driver, date_link)
 
+    wait = WebDriverWait(driver, timeout=15)
     predicate = partial(_uuid_is_present, driver)
-    WebDriverWait(driver, timeout=15).until(predicate)
+    wait.until(predicate)
 
-    form_wrapper = driver.find_element_by_css_selector('.filter-outer.form-wrapper')
+    form_wrapper = _find_element(By.CSS_SELECTOR, '.filter-outer.form-wrapper', driver)
     form_wrapper_id = form_wrapper.get_attribute('id')
     start, end = len('edit-query-filters-'), form_wrapper_id.find('-outer-filter')
     uuid = form_wrapper_id[start:end]
@@ -143,11 +174,11 @@ def query(driver, start_date, end_date):
     driver.execute_script(script)
 
     print('GET', '{results_url}')
-    form_submit = driver.find_element_by_id('edit-actions-execute')
+    form_submit = _find_element(By.ID, 'edit-actions-execute', driver)
     _click(driver, form_submit)
 
 def process_batch(driver, writer):
-    tds = driver.find_elements_by_css_selector('.responsive .odd td')
+    tds = _find_elements(By.CSS_SELECTOR, '.responsive .odd td', driver)
     if len(tds) == 1 and _get_value(driver, tds[0]) == MESSAGE_NO_INCIDENTS_AVAILABLE:
         # Nil query results.
         return
@@ -156,7 +187,7 @@ def process_batch(driver, writer):
     # Since we want to write out incidents by ascending date, process pages that come later first.
     try:
         print('GET', '{}?page={{last_pageno}}'.format(base_url))
-        last_li = driver.find_element_by_css_selector('.pager-last.last')
+        last_li = _find_element(By.CSS_SELECTOR, '.pager-last.last', driver)
         _click(driver, last_li)
     except NoSuchElementException:
         # A single page of results was returned.
@@ -183,7 +214,9 @@ def process_batch(driver, writer):
     process_page(driver, writer)
 
 def process_page(driver, writer):
-    trs = driver.find_elements_by_css_selector('.responsive .odd, .responsive .even')
+    trs = _find_elements(By.CSS_SELECTOR,
+                         '.responsive .odd, .responsive .even',
+                         driver)
 
     trs = reversed(trs) # Order by ascending date instead of descending
     infos = map(partial(_get_info, driver), trs)
