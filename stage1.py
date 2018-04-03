@@ -94,17 +94,21 @@ def query(driver, start_date, end_date):
     start, end = len('edit-query-filters-'), form_wrapper_id.find('-outer-filter')
     uuid = form_wrapper_id[start:end]
 
-    input_date_from_id = f'edit-query-filters-{uuid}-outer-filter-filter-field-date-from'
-    input_date_to_id = f'edit-query-filters-{uuid}-outer-filter-filter-field-date-to'
+    input_date_from_id = 'edit-query-filters-{}-outer-filter-filter-field-date-from'.format(uuid)
+    input_date_to_id = 'edit-query-filters-{}-outer-filter-filter-field-date-to'.format(uuid)
     # TODO: This format string will not work on Unix. Use - instead of #
     start_date_str = _fmt_date(start_date)
     end_date_str = _fmt_date(end_date)
 
     # HACK HACK HACK
-    driver.execute_script(f'''
+    script = '''
     document.getElementById("{input_date_from_id}").value = "{start_date_str}";
     document.getElementById("{input_date_to_id}").value = "{end_date_str}";
-    ''')
+    '''.format(input_date_from_id=input_date_from_id,
+               input_date_to_id=input_date_to_id,
+               start_date_str=start_date_str,
+               end_date_str=end_date_str)
+    driver.execute_script(script)
 
     form_submit = driver.find_element_by_id('edit-actions-execute')
     _click(driver, form_submit)
@@ -134,7 +138,7 @@ def process_batch(driver, writer):
     # NOTE: In true programmer fashion, the nth page is labeled '?page={n - 1}'
     process_page(driver, writer)
     for pageno in range(last_pageno - 1, 0, -1):
-        url = f'{base_url}?page={pageno}'
+        url = '{}?page={}'.format(base_url, pageno)
         driver.get(url)
         process_page(driver, writer)
 
