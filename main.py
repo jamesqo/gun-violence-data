@@ -5,16 +5,18 @@ import warnings
 
 from datetime import date, timedelta
 from functools import partial
-#from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import Chrome
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 from uuid import uuid4
 
 GLOBAL_START = date(year=2013, month=1, day=1)
 #GLOBAL_END = date(year=2018, month=4, day=1)
-GLOBAL_END = date(year=2013, month=2, day=1)
+GLOBAL_END = date(year=2013, month=4, day=1)
+
+MESSAGE_NO_INCIDENTS_AVAILABLE = 'There are currently no incidents available.'
 
 def _uuid_is_present(driver, _):
     form_wrapper = driver.find_element_by_css_selector('.filter-outer.form-wrapper')
@@ -92,12 +94,44 @@ def query(driver, start_date, end_date):
     form_submit.click()
 
 def process_batch(driver, writer):
-    table_wrapper = driver.find_element_by_css_selector('.table-wrapper')
-    scrollable = table_wrapper.find_element_by_css_selector('.scrollable')
-    trs = scrollable.find_elements_by_css_selector('tr.odd, tr.even')
-    if len(trs) == 1: # Nil query results
+    scrollable = driver.find_element_by_css_selector('.table-wrapper .scrollable')
+    tds = scrollable.find_elements_by_css_selector('tr.odd td')
+    if len(tds) == 1 and _get_value(driver, tds[0]) == MESSAGE_NO_INCIDENTS_AVAILABLE:
+        # Nil query results.
         return
 
+    # Since we want to write out incidents by ascending date, process pages that come later first.
+    try:
+        last_li = driver.find_element_by_css_selector('.pager-last.last')
+        last_li.click()
+    except NoSuchElementException:
+        # A single page of results was returned.
+        process_page(driver, writer)
+        return
+
+    # Now we're on the last page. Process each page and navigate forwards.
+    last_url = driver.current_url
+    base_url = last_url[:last_url.find('?')]
+    last_url_query = urlparse(last_url).query
+    last_pageno = parse_qs(last_url_query)['page']
+
+    # NOTE: In true programmer fashion, the nth page is labeled '?page={n - 1}'
+    process_page(driver, writer)
+    for pageno in range(last_pageno - 1, 0, -1):
+        url = f'{base_url}?page={pageno}'
+        driver.get(url)
+        process_page(driver, writer)
+
+    # First page has no '?page=' query parameter
+    url = base_url
+    driver.get(url)
+    process_page(driver, writer)
+
+def process_page(driver, writer):
+    scrollable = driver.find_element_by_css_selector('.table-wrapper .scrollable')
+    trs = scrollable.find_elements_by_css_selector('tr.odd, tr.even')
+
+    trs = reversed(trs) # Order by ascending date instead of descending
     infos = map(partial(_get_info, driver), trs)
     for info in infos:
         writer.writerow([*info])
