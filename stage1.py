@@ -14,7 +14,7 @@ from uuid import uuid4
 
 GLOBAL_START = date(year=2013, month=1, day=1)
 #GLOBAL_END = date(year=2018, month=4, day=1)
-GLOBAL_END = date(year=2013, month=4, day=1)
+GLOBAL_END = date(year=2014, month=4, day=1)
 
 MESSAGE_NO_INCIDENTS_AVAILABLE = 'There are currently no incidents available.'
 
@@ -36,8 +36,11 @@ def _get_info(driver, tr):
         n_killed, n_injured = map(partial(_get_value, driver), tds[:6])
     n_killed, n_injured = map(int, [n_killed, n_injured])
 
-    incident_url, source_url = tds[6].find_element_by_link_text('View Incident').get_attribute('href'), \
-                               tds[6].find_element_by_link_text('View Source').get_attribute('href')
+    incident_url = tds[6].find_element_by_link_text('View Incident').get_attribute('href')
+    try:
+        source_url = tds[6].find_element_by_link_text('View Source').get_attribute('href')
+    except NoSuchElementException:
+        source_url = ''
 
     return date, state, city_or_county, address, \
         n_killed, n_injured, \
