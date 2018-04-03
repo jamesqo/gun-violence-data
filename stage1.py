@@ -9,7 +9,7 @@ from argparse import ArgumentParser
 from calendar import monthrange
 from datetime import date, timedelta
 from functools import partial
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 from selenium.webdriver import Chrome
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -21,7 +21,14 @@ MESSAGE_NO_INCIDENTS_AVAILABLE = 'There are currently no incidents available.'
 def _uuid_is_present(driver, _):
     form_wrapper = _find_element(By.CSS_SELECTOR, '.filter-outer.form-wrapper', driver)
     # TODO: It's possible that the element could become stale in between these calls.
-    form_wrapper_id = form_wrapper.get_attribute('id')
+    form_wrapper_id = None
+    while form_wrapper_id is None:
+        try:
+            form_wrapper_id = form_wrapper.get_attribute('id')
+        except StaleElementReferenceException:
+            # Remember, this code is being run while we're waiting for the form wrapper to be updated.
+            # There's a real chance that update could happen in between the _find_element and get_attribute calls.
+            continue
     return 'new' not in form_wrapper_id
 
 def _fmt_date(date):
