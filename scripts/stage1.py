@@ -73,9 +73,7 @@ def parse_args():
 def query(driver, start_date, end_date):
     print("Querying incidents between {:%m/%d/%Y} and {:%m/%d/%Y}".format(start_date, end_date))
 
-    url = 'http://www.gunviolencearchive.org/query'
-    print('GET', url)
-    driver.get(url)
+    driver.get_verbose('http://www.gunviolencearchive.org/query')
 
     filter_dropdown_trigger = driver.find_element_or_wait(By.CSS_SELECTOR, '.filter-dropdown-trigger')
     driver.click(filter_dropdown_trigger)
@@ -149,15 +147,11 @@ def process_batch(driver, writer):
     # NOTE: In true programmer fashion, the nth page is labeled '?page={n - 1}'
     process_page(driver, writer)
     for pageno in range(last_pageno - 1, 0, -1):
-        url = '{}?page={}'.format(base_url, pageno)
-        print('GET', url)
-        driver.get(url)
+        driver.get_verbose(url='{}?page={}'.format(base_url, pageno))
         process_page(driver, writer)
 
     # First page has no '?page=' query parameter
-    url = base_url
-    print('GET', url)
-    driver.get(url)
+    driver.get_verbose(url=base_url)
     process_page(driver, writer)
 
 def process_page(driver, writer):

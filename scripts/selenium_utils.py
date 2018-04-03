@@ -35,8 +35,13 @@ def get_value(self, element, decode=True):
     script = 'return arguments[0].{};'.format(property)
     return self.execute_script(script, element)
 
+def get_verbose(self, url):
+    print('GET', url)
+    self.get(url)
+
 # TODO: Use getattr/setattr and __all__ instead of writing things out by hand.
 WebDriver.click = click
 WebDriver.find_element_or_wait = find_element_or_wait
 WebDriver.find_elements_or_wait = find_elements_or_wait
 WebDriver.get_value = get_value
+WebDriver.get_verbose = get_verbose
