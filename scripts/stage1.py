@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import csv
+import asyncio
 import dateutil.parser as dateparser
 import logging as log
 import platform
@@ -16,8 +16,11 @@ from functools import partial
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 from selenium.webdriver import Chrome
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from urllib.parse import parse_qs, urlparse
+
+from stage1_serializer import Stage1Serializer
 
 # Formats as %m/%d/%Y, but does not leave leading zeroes on the month or day.
 # Surprisingly, the syntax for this is different across platforms: https://stackoverflow.com/a/2073189/4077294
@@ -86,79 +89,44 @@ def query(driver, start_date, end_date):
     date_link = driver.find_element_or_wait(By.LINK_TEXT, 'Date')
     driver.click(date_link)
 
+    # Fill in the date fields
     input_date_from = driver.find_element_or_wait(By.CSS_SELECTOR, 'input[id$="filter-field-date-from"]')
     input_date_to = driver.find_element_or_wait(By.CSS_SELECTOR, 'input[id$="filter-field-date-to"]')
     start_date_str = start_date.strftime(DATE_FORMAT)
     end_date_str = end_date.strftime(DATE_FORMAT)
-
-    # HACK HACK HACK
     script = '''
     arguments[0].value = "{}";
     arguments[1].value = "{}";
     '''.format(start_date_str, end_date_str)
     driver.execute_script(script, input_date_from, input_date_to)
 
+    # Click submit button
     form_submit = driver.find_element_or_wait(By.ID, 'edit-actions-execute')
     driver.click(form_submit)
 
-    return driver.current_url
+    #wait = WebDriverWait(driver, timeout=10)
+    #wait.until(lambda driver: driver.has_page_loaded())
 
-def process_batch(driver, writer):
-    tds = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive .odd td')
-    if len(tds) == 1 and driver.get_value(tds[0]) == MESSAGE_NO_INCIDENTS_AVAILABLE:
-        # Nil query results.
-        return
+    # Extract the number of pages from the pager
+    return driver.current_url, get_n_pages(driver)
 
-    base_url = driver.current_url
-    # Since we want to write out incidents by ascending date, process pages that come later first.
+def get_n_pages(driver):
     try:
-        last_li = driver.find_element_or_wait(By.CSS_SELECTOR, '.pager-last.last')
-        driver.click(last_li)
+        last_a = driver.find_element_or_wait(By.CSS_SELECTOR, 'a[title="Go to last page"]')
+        last_url = last_a.get_attribute('href')
+        form_data = urlparse(last_url).query
+        n_pages = int(parse_qs(form_data)['page'][0]) + 1
+        return n_pages
     except NoSuchElementException:
+        tds = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive .odd td')
+        if len(tds) == 1 and driver.get_value(tds[0]) == MESSAGE_NO_INCIDENTS_AVAILABLE:
+            # Nil query results.
+            return 0
+
         # A single page of results was returned.
-        process_page(driver, writer)
-        return
+        return 1
 
-    # Now we're on the last page. Process each page and navigate forwards.
-    last_url = driver.current_url
-    last_url_query = urlparse(last_url).query
-    last_pageno = int(parse_qs(last_url_query)['page'][0])
-
-    # NOTE: In true programmer fashion, the nth page is labeled '?page={n - 1}'
-    process_page(driver, writer)
-    for pageno in range(last_pageno - 1, 0, -1):
-        driver.get_verbose(url='{}?page={}'.format(base_url, pageno))
-        process_page(driver, writer)
-
-    # First page has no '?page=' query parameter
-    driver.get_verbose(url=base_url)
-    process_page(driver, writer)
-
-def process_page(driver, writer):
-    trs = driver.find_elements_or_wait(By.CSS_SELECTOR, '.responsive .odd, .responsive .even')
-    trs = reversed(trs) # Order by ascending date instead of descending
-    infos = map(partial(get_info, driver), trs)
-    for info in infos:
-        writer.writerow([*info])
-
-def get_info(driver, tr):
-    tds = driver.find_elements_or_wait(By.CSS_SELECTOR, 'td', ancestor=tr)
-    assert len(tds) == 7
-    date, state, city_or_county, address, n_killed, n_injured = map(driver.get_value, tds[:6])
-    n_killed, n_injured = map(int, [n_killed, n_injured])
-
-    incident_a = driver.find_element_or_wait(By.LINK_TEXT, 'View Incident', ancestor=tds[6])
-    incident_url = incident_a.get_attribute('href')
-
-    try:
-        source_a = driver.find_element_or_wait(By.LINK_TEXT, 'View Source', ancestor=tds[6])
-        source_url = source_a.get_attribute('href')
-    except NoSuchElementException:
-        source_url = ''
-
-    return date, state, city_or_county, address, n_killed, n_injured, incident_url, source_url
-
-def main():
+async def main():
     args = parse_args()
     log.basicConfig(level=args.log_level)
     driver = Chrome()
@@ -167,14 +135,17 @@ def main():
     global_start, global_end = dateparser.parse(args.start_date), dateparser.parse(args.end_date)
     start, end = global_start, global_start + step - timedelta(days=1)
 
-    with open(args.output_file, 'w', encoding='utf-8') as outfile:
-        writer = csv.writer(outfile)
-        writer.writerow(['date', 'state', 'city_or_county', 'address', 'n_killed', 'n_injured', 'incident_url', 'source_url'])
-
+    async with Stage1Serializer(output_fname=args.output_file) as serializer:
+        serializer.write_header()
         while start <= global_end:
-            query_url = query(driver, start, end)
-            process_batch(driver, writer)
+            query_url, n_pages = query(driver, start, end)
+            if n_pages > 0:
+                await serializer.write_batch(query_url, n_pages)
             start, end = end + timedelta(days=1), min(global_end, end + step)
 
 if __name__ == '__main__':
-    main()
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(main())
+    finally:
+        loop.close()
