@@ -189,4 +189,5 @@ tags
 # End of https://www.gitignore.io/api/vim,emacs,python,visualstudiocode
 
 *.log
-*.csv # Temp
+# Temp
+*.csv
