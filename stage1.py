@@ -1,22 +1,15 @@
 import csv
+import dateutil.parser as dateparser
 import platform
-import shutil
-import requests
 import warnings
 
+from argparse import ArgumentParser
 from datetime import date, timedelta
 from functools import partial
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import Chrome
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from urllib.parse import parse_qs, urlencode, urlparse
-from uuid import uuid4
-
-#GLOBAL_START = date(year=2013, month=1, day=1)
-GLOBAL_START = date(year=2013, month=12, day=1)
-#GLOBAL_END = date(year=2018, month=4, day=1)
-GLOBAL_END = date(year=2014, month=4, day=1)
+from urllib.parse import parse_qs, urlparse
 
 MESSAGE_NO_INCIDENTS_AVAILABLE = 'There are currently no incidents available.'
 
@@ -61,19 +54,43 @@ def _get_info(driver, tr):
         incident_url, source_url
 
 def main():
+    args = parse_args()
     driver = Chrome()
 
     step = timedelta(days=7)
-    start, end = GLOBAL_START, GLOBAL_START + step - timedelta(days=1)
+    global_start, global_end = dateparser.parse(args.start_date), dateparser.parse(args.end_date)
+    start, end = global_start, global_start + step - timedelta(days=1)
 
-    with open('stage1.csv', 'w', encoding='utf-8') as outfile:
+    with open(args.output_file, 'w', encoding='utf-8') as outfile:
         writer = csv.writer(outfile)
         writer.writerow(['date', 'state', 'city_or_county', 'address', 'n_killed', 'n_injured', 'incident_url', 'source_url'])
 
-        while start <= GLOBAL_END:
+        while start <= global_end:
             query(driver, start, end)
             process_batch(driver, writer)
-            start, end = end + timedelta(days=1), min(GLOBAL_END, end + step)
+            start, end = end + timedelta(days=1), min(global_end, end + step)
+
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument(
+        'start_date',
+        metavar='START',
+        help="set start date",
+        action='store',
+    )
+    parser.add_argument(
+        'end_date',
+        metavar='END',
+        help="set end date",
+        action='store',
+    )
+    parser.add_argument(
+        'output_file',
+        metavar='OUTFILE',
+        help="set output file",
+        action='store',
+    )
+    return parser.parse_args()
 
 def query(driver, start_date, end_date):
     url = 'http://www.gunviolencearchive.org/query'
