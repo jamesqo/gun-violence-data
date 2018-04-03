@@ -1,4 +1,5 @@
 import csv
+import platform
 import shutil
 import requests
 import warnings
@@ -23,6 +24,12 @@ def _uuid_is_present(driver, _):
     # TODO: It's possible that the element could become stale in between these calls.
     form_wrapper_id = form_wrapper.get_attribute('id')
     return 'new' not in form_wrapper_id
+
+def _fmt_date(date):
+    # Format as %m/%d/%Y, but do not leave leading zeroes on the month or day.
+    # Surprisingly, the syntax for this is different across platforms: https://stackoverflow.com/a/2073189/4077294
+    fmt_string = '%#m/%#d/%Y' if platform.system() == 'Windows' else '%-m/%-d/%Y'
+    return date.strftime(fmt_string)
 
 def _click(driver, element):
     # HACK HACK HACK
@@ -90,8 +97,8 @@ def query(driver, start_date, end_date):
     input_date_from_id = f'edit-query-filters-{uuid}-outer-filter-filter-field-date-from'
     input_date_to_id = f'edit-query-filters-{uuid}-outer-filter-filter-field-date-to'
     # TODO: This format string will not work on Unix. Use - instead of #
-    start_date_str = start_date.strftime('%#m/%#d/%Y')
-    end_date_str = end_date.strftime('%#m/%#d/%Y')
+    start_date_str = _fmt_date(start_date)
+    end_date_str = _fmt_date(end_date)
 
     # HACK HACK HACK
     driver.execute_script(f'''
