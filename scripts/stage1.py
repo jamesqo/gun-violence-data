@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# stage 1: initial import of data fom gunviolencearchive.org using web scraping techniques
 
 import asyncio
 import dateutil.parser as dateparser
