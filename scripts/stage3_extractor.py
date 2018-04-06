@@ -5,6 +5,23 @@ from collections import defaultdict, namedtuple
 
 Field = namedtuple('Field', ['name', 'value'])
 
+LOCATION_FIELDNAMES = sorted(['latitude', 'longitude', 'location_description'])
+PARTICIPANT_FIELDNAMES = sorted([
+    'participant_type',
+    'participant_name',
+    'participant_age',
+    'participant_age_group',
+    'participant_gender',
+    'participant_status',
+    'participant_relationship'
+])
+GUNS_INVOLVED_FIELDNAMES = sorted(['n_guns_involved', 'gun_type', 'gun_stolen'])
+DISTRICT_FIELDNAMES = sorted([
+    'congressional_district',
+    'state_senate_district',
+    'state_house_district'
+])
+
 def _find_div_with_title(title, soup):
     common_parent = soup.select_one('#block-system-main')
     header = common_parent.find('h2', string=title)
@@ -24,7 +41,32 @@ def _getgroups(lines):
         groups[key].append(value)
     return groups
 
+def _normalize(fields, all_field_names):
+    fields = list(fields)
+    if not fields:
+        # zip(*[]) chokes, so special case for empty lists.
+        return [Field(name, None) for name in all_field_names]
+
+    # Ensure that the fields for a particular field set are alphabetically ordered by field name.
+    # Also, add dummy ('field_name', None) fields for missing field names.
+    fields = sorted(fields, key=lambda f: f.name)
+
+    field_names, field_values = zip(*fields)
+    field_names = set(field_names)
+    i = 0
+    for name in all_field_names:
+        if name not in field_names:
+            dummy = Field(name, None)
+            fields.insert(i, dummy)
+        i += 1
+    assert len(fields) == len(all_field_names)
+
+    return fields
+
 class Stage3Extractor(object):
+    def __init__(self):
+        pass
+
     def extract_fields(self, text):
         soup = BeautifulSoup(text, features='html5lib')
 
@@ -37,13 +79,13 @@ class Stage3Extractor(object):
         district_fields = self._extract_district_fields(soup)
 
         return (
-               *location_fields,
-               *participant_fields,
+               *_normalize(location_fields, LOCATION_FIELDNAMES),
+               *_normalize(participant_fields, PARTICIPANT_FIELDNAMES),
                 Field('incident_characteristics', incident_characteristics),
                 Field('notes', notes),
-               *guns_involved_fields,
+               *_normalize(guns_involved_fields, GUNS_INVOLVED_FIELDNAMES),
                 Field('sources', sources),
-               *district_fields
+               *_normalize(district_fields, DISTRICT_FIELDNAMES)
                )
 
     def _extract_location_fields(self, soup):
@@ -77,11 +119,11 @@ class Stage3Extractor(object):
 
     def _extract_incident_characteristics(self, soup):
         div = _find_div_with_title('Incident Characteristics', soup)
-        return [] if div is None else [li.text for li in div.select('li')]
+        return None if div is None else [li.text for li in div.select('li')]
 
     def _extract_notes(self, soup):
         div = _find_div_with_title('Notes', soup)
-        return '' if div is None else div.select_one('p').text
+        return None if div is None else div.select_one('p').text
 
     def _extract_guns_involved_fields(self, soup):
         div = _find_div_with_title('Guns Involved', soup)
