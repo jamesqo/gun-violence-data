@@ -83,7 +83,7 @@ class Stage3Extractor(object):
         # n_guns_involved
         p_text = div.select_one('p').text
         match = re.match(r'^([0-9]+) guns involved.$')
-        assert match, "'{}' did not match expected pattern".format(p_text)
+        assert match, "<p> text did not match expected pattern: {}".format(p_text)
         n_guns_involved = int(match.group(1))
         yield 'n_guns_involved', n_guns_involved
 
