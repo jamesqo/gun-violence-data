@@ -69,7 +69,7 @@ class Stage3Extractor(object):
 
     def _extract_incident_characteristics(self, soup):
         div = self._find_div_with_title('Incident Characteristics', soup)
-        return [] if div is None else [li.text for li in div.select('ul li')]
+        return [] if div is None else [li.text for li in div.select('li')]
 
     def _extract_notes(self, soup):
         div = self._find_div_with_title('Notes', soup)
@@ -108,5 +108,5 @@ class Stage3Extractor(object):
         # Fortunately, each important line is followed by a <br> element, so we can use that to our advantage.
         lines = [br.previousSibling.text.strip() for br in div.select('br')]
         for key, values in self._getgroups(lines).items():
-            assert len(values) == 1, "Did the incident take place in more than 1 congressional district?"
+            assert len(values) == 1 # It would be strange if the incident took place in more than 1 congressional district
             yield self._out_name(key), values[0]
