@@ -39,5 +39,5 @@ class Stage3Session(object):
         try:
             return self._extractor.extract_fields(text, ctx)
         except Exception:
-            print("ERROR! Extractor failed for the following webpage: {}".format(incident_url))
+            print("ERROR! Extractor failed for the following webpage: {}".format(incident_url), file=sys.stderr)
             raise

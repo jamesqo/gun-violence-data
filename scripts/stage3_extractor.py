@@ -66,6 +66,11 @@ def _normalize(fields, all_field_names):
 
     return fields
 
+def _stringify_list(lst, sep):
+    violation = next((sep in item for item in lst), None)
+    assert violation is None, "List item {} contains the separator character {}".format(repr(violation), repr(sep))
+    return sep.join(lst)
+
 class Stage3Extractor(object):
     def __init__(self):
         pass
@@ -125,12 +130,12 @@ class Stage3Extractor(object):
         lines = [li.text for li in div.select('li')]
         for field_name, field_values in _getgroups(lines).items():
             field_name = _out_name(field_name, prefix='participant_')
-            # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
+            field_values = _stringify_list(field_values, sep=',')
             yield Field(field_name, field_values)
 
     def _extract_incident_characteristics(self, soup):
         div = _find_div_with_title('Incident Characteristics', soup)
-        return None if div is None else [li.text for li in div.select('li')]
+        return None if div is None else _stringify_list([li.text for li in div.select('li')], sep='\n')
 
     def _extract_notes(self, soup):
         div = _find_div_with_title('Notes', soup)
@@ -152,7 +157,7 @@ class Stage3Extractor(object):
         lines = [li.text for li in div.select('li')]
         for field_name, field_values in _getgroups(lines).items():
             field_name = _out_name(field_name, prefix='gun_')
-            # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
+            field_values = _stringify_list(field_values, sep=',')
             yield Field(field_name, field_values)
 
     def _extract_sources(self, soup):
@@ -171,4 +176,5 @@ class Stage3Extractor(object):
         lines = [str(br.previousSibling).strip() for br in div.select('br')]
         for key, values in _getgroups(lines).items():
             assert len(values) == 1 # It would be strange if the incident took place in more than 1 congressional district
-            yield Field(_out_name(key), values[0])
+            value = int(values[0])
+            yield Field(_out_name(key), value)
