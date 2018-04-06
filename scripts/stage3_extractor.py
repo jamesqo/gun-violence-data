@@ -28,6 +28,16 @@ class Stage3Extractor(object):
         header = common_parent.find('h2', string=title)
         return header.parent if header else None
 
+    def _out_name(self, in_name, prefix=''):
+        return prefix + in_name.lower().replace(' ', '_') # e.g. 'Age Group' -> 'participant_age_group'
+
+    def _getgroups(self, lines):
+        groups = defaultdict(list)
+        for line in lines:
+            key, value = line[:line.find(':')], line[line.find(':') + 2:]
+            groups[key].append(value)
+        return groups
+
     def _extract_location_fields(self, soup):
         div = self._find_div_with_title('Location', soup)
         if div is None:
@@ -38,31 +48,24 @@ class Stage3Extractor(object):
             match = re.match(r'^Geolocation: (.*), (.*)$', text):
             if match:
                 latitude, longitude = float(match.group(1)), float(match.group(2))
-                yield ('latitude', latitude)
-                yield ('longitude', longitude)
+                yield 'latitude', latitude
+                yield 'longitude', longitude
             elif re.match(r'^(.*), (.*)$', text) or re.match(r'^[0-9]+ ', text):
                 # Nothing to be done. City, state, and address fields are already included in the stage2 dataset.
                 pass
             else:
-                yield ('location_description', text)
+                yield 'location_description', text
 
     def _extract_participant_fields(self, soup):
-        def out_name(in_name):
-            # Example: in_name = 'Age Group' -> out_name = 'participant_age_group'
-            return 'participant_' + in_name.lower().replace(' ', '_')
-
         div = self._find_div_with_title('Participants', soup)
         if div is None:
-            return []
+            return
 
-        fields = defaultdict(list)
-        for ul in div.select('ul'):
-            for li in ul.children:
-                text = li.text
-                key, value = text[:text.find(':')], text[text.find(':') + 2:]
-                fields[key].append(value)
-        # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
-        return [(out_name(key), values) for key, values in fields.items()]
+        lines = [li.text for li in div.select('li')]
+        for field_name, field_values in self._getgroups(lines).items():
+            field_name = self._out_name(field_name, prefix='participant_')
+            # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
+            yield field_name, values
 
     def _extract_incident_characteristics(self, soup):
         div = self._find_div_with_title('Incident Characteristics', soup)
@@ -73,42 +76,37 @@ class Stage3Extractor(object):
         return '' if div is None else div.select_one('p').text
 
     def _extract_guns_involved_fields(self, soup):
-        def out_name(in_name):
-            return 'gun_' + in_name.lower()
-
         div = self._find_div_with_title('Guns Involved', soup)
         if div is None:
             return
 
+        # n_guns_involved
         p_text = div.select_one('p').text
         match = re.match(r'^([0-9]+) guns involved.$')
         assert match, "'{}' did not match expected pattern".format(p_text)
         n_guns_involved = int(match.group(1))
-        yield ('n_guns_involved', n_guns_involved)
+        yield 'n_guns_involved', n_guns_involved
 
-        fields = defaultdict(list)
-        for ul in div.select('ul'):
-            for li in ul.children:
-                text = li.text
-                key, value = text[:text.find(':')], text[text.find(':') + 2:]
-                fields[key].append(value)
-        # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
-        return [(out_name(key), values) for key, values in fields.items()]
+        # List attributes
+        lines = [li.text for li in div.select('li')]
+        for field_name, field_values in self._getgroups(lines).items():
+            field_name = self._out_name(key, prefix='gun_')
+            # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
+            yield field_name, field_values
 
     def _extract_sources(self, soup):
         # TODO
-        return []
+        return
+        yield
 
     def _extract_district_fields(self, soup):
-        def out_name(in_name):
-            return in_name.lower().replace(' ', '_')
-
         div = self._find_div_with_title('District', soup)
         if div is None:
             return
 
-        for br in div.select('br'):
-            text = br.previousSibling.text
-            key, value = text[:text.find(':')], text[text.find(':') + 2:]
-            yield (out_name(key), int(value))
-
+        # The text we want to scrape is orphaned (no direct parent element), so we can't get at it directly.
+        # Fortunately, each important line is followed by a <br> element, so we can use that to our advantage.
+        lines = [br.previousSibling.text.strip() for br in div.select('br')]
+        for key, values in self._getgroups(lines).items():
+            assert len(values) == 1, "Did the incident take place in more than 1 congressional district?"
+            yield self._out_name(key), values[0]
