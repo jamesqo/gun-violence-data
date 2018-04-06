@@ -1,7 +1,9 @@
 import re
 
 from bs4 import BeautifulSoup
-from collections import defaultdict
+from collections import defaultdict, namedtuple
+
+Field = namedtuple('Field', ['name', 'value'])
 
 class Stage3Extractor(object):
     def extract_fields(self, text):
@@ -18,10 +20,10 @@ class Stage3Extractor(object):
         return (
                *location_fields,
                *participant_fields,
-                ('incident_characteristics', incident_characteristics),
-                ('notes', notes),
+                Field('incident_characteristics', incident_characteristics),
+                Field('notes', notes),
                *guns_involved_fields,
-                ('sources', sources),
+                Field('sources', sources),
                *district_fields
                )
 
@@ -54,13 +56,13 @@ class Stage3Extractor(object):
             match = re.match(r'^Geolocation: (.*), (.*)$', text)
             if match:
                 latitude, longitude = float(match.group(1)), float(match.group(2))
-                yield 'latitude', latitude
-                yield 'longitude', longitude
+                yield Field('latitude', latitude)
+                yield Field('longitude', longitude)
             elif re.match(r'^(.*), (.*)$', text) or re.match(r'^[0-9]+ ', text):
                 # Nothing to be done. City, state, and address fields are already included in the stage2 dataset.
                 pass
             else:
-                yield 'location_description', text
+                yield Field('location_description', text)
 
     def _extract_participant_fields(self, soup):
         div = self._find_div_with_title('Participants', soup)
@@ -71,7 +73,7 @@ class Stage3Extractor(object):
         for field_name, field_values in self._getgroups(lines).items():
             field_name = self._out_name(field_name, prefix='participant_')
             # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
-            yield field_name, field_values
+            yield Field(field_name, field_values)
 
     def _extract_incident_characteristics(self, soup):
         div = self._find_div_with_title('Incident Characteristics', soup)
@@ -91,14 +93,14 @@ class Stage3Extractor(object):
         match = re.match(r'^([0-9]+) guns? involved.$', p_text)
         assert match, "<p> text did not match expected pattern: {}".format(p_text)
         n_guns_involved = int(match.group(1))
-        yield 'n_guns_involved', n_guns_involved
+        yield Field('n_guns_involved', n_guns_involved)
 
         # List attributes
         lines = [li.text for li in div.select('li')]
         for field_name, field_values in self._getgroups(lines).items():
             field_name = self._out_name(field_name, prefix='gun_')
             # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
-            yield field_name, field_values
+            yield Field(field_name, field_values)
 
     def _extract_sources(self, soup):
         # TODO
@@ -116,4 +118,4 @@ class Stage3Extractor(object):
         lines = [str(br.previousSibling).strip() for br in div.select('br')]
         for key, values in self._getgroups(lines).items():
             assert len(values) == 1 # It would be strange if the incident took place in more than 1 congressional district
-            yield self._out_name(key), values[0]
+            yield Field(self._out_name(key), values[0])
