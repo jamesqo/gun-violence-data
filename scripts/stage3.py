@@ -20,13 +20,14 @@ def parse_args():
         const=log.DEBUG,
         default=log.WARNING,
     )
+    # Note: the magic number for this seems to be around 35
     parser.add_argument(
         '-l', '--limit',
         help="limit the number of simultaneous connections aiohttp makes to gunviolencearchive.org",
         action='store',
         dest='conn_limit',
         type=int,
-        default=-1,
+        default=0, # represents unlimited number of connections
     )
     parser.add_argument(
         '-m', '--mock',
@@ -34,12 +35,6 @@ def parse_args():
         action='store',
         dest='csv_fname',
         default=STAGE2_OUTPUT,
-    )
-    parser.add_argument(
-        '--sequential',
-        help="run http requests sequentially instead of asynchronously for deterministic behavior (-> easier debugging)",
-        action='store_true',
-        dest='sequential',
     )
     return parser.parse_args()
 
@@ -68,12 +63,8 @@ async def add_fields_from_incident_url(df, args):
     async with Stage3Session(limit_per_host=args.conn_limit) as session:
         # list of coros of tuples of Fields
         tasks = df.apply(session.get_fields_from_incident_url, axis=1)
-        if args.sequential:
-            # Note: This is suuuuuuper slow
-            fields = [await task for task in tasks]
-        else:
-            # list of tuples of Fields
-            fields = await asyncio.gather(*tasks)
+        # list of tuples of Fields
+        fields = await asyncio.gather(*tasks)
 
     # tuple of lists of Fields, where each list's Fields should have the same name
     # if the extractor did its job correctly
