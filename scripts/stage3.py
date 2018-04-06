@@ -88,6 +88,7 @@ async def main():
 
     df.to_csv('stage3.csv',
               index=False,
+              float_format='%g',
               encoding='utf-8')
 
 if __name__ == '__main__':

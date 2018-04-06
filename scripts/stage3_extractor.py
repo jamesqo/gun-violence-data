@@ -187,9 +187,12 @@ class Stage3Extractor(object):
             yield Field(field_name, field_values)
 
     def _extract_sources(self, soup):
-        # TODO
-        return
-        yield
+        div = _find_div_with_title('Sources', soup)
+        if div is None:
+            return None
+
+        anchors = [a for a in div.select('a') if a.text == a['href']]
+        return _stringify_list([a['href'] for a in anchors])
 
     def _extract_district_fields(self, soup):
         div = _find_div_with_title('District', soup)
