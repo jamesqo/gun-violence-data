@@ -2,14 +2,35 @@
 # stage 3: augmenting each incident with additional fields, again using scraping
 
 import asyncio
+import logging as log
 import pandas as pd
 
+from argparse import ArgumentParser
 from stage3_session import Stage3Session
 
 STAGE2_OUTPUT = 'stage2.csv'
 
-def load_stage2():
-    return pd.read_csv(STAGE2_OUTPUT,
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument(
+        '-d', '--debug',
+        help="show debug information",
+        action='store_const',
+        dest='log_level',
+        const=log.DEBUG,
+        default=log.WARNING,
+    )
+    parser.add_argument(
+        '-m', '--mock',
+        help="read in mock csv file for easier debugging",
+        action='store',
+        dest='csv_fname',
+        default=STAGE2_OUTPUT,
+    )
+    return parser.parse_args()
+
+def load_stage2(args):
+    return pd.read_csv(args.csv_fname,
                        parse_dates=['date'],
                        encoding='utf-8')
 
@@ -32,7 +53,10 @@ async def add_incident_url_fields(df):
     return df
 
 async def main():
-    df = load_stage2()
+    args = parse_args()
+    log.basicConfig(level=args.log_level)
+
+    df = load_stage2(args)
     df = add_incident_id(df)
     df = await add_incident_url_fields(df)
 

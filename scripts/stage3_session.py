@@ -16,10 +16,10 @@ class Stage3Session(object):
 
     async def get_fields(self, incident_url):
         async with self._sess.get(incident_url) as resp:
-            ctype = resp.headers.get(CONTENT_TYPE, '')
+            ctype = resp.headers.get(CONTENT_TYPE, '').lower()
             mimetype = ctype[:ctype.find(';')]
-            if mimetype == 'text/html':
+            if mimetype in ('text/htm', 'text/html'):
                 text = await resp.text()
             else:
-                raise NotImplementedError("Encountered mime type {}".format(mimetype))
+                raise NotImplementedError("Encountered unknown mime type {}".format(mimetype))
         return self._extractor.extract_fields(text)

@@ -15,13 +15,15 @@ class Stage3Extractor(object):
         sources = self._extract_sources(soup)
         district_fields = self._extract_district_fields(soup)
 
-        return *location_fields,
+        return (
+               *location_fields,
                *participant_fields,
                 ('incident_characteristics', incident_characteristics),
                 ('notes', notes),
                *guns_involved_fields,
                 ('sources', sources),
                *district_fields
+               )
 
     def _find_div_with_title(self, title, soup):
         common_parent = soup.select_one('#block-system-main')
@@ -45,7 +47,7 @@ class Stage3Extractor(object):
 
         for span in div.select('span'):
             text = span.text
-            match = re.match(r'^Geolocation: (.*), (.*)$', text):
+            match = re.match(r'^Geolocation: (.*), (.*)$', text)
             if match:
                 latitude, longitude = float(match.group(1)), float(match.group(2))
                 yield 'latitude', latitude
@@ -65,7 +67,7 @@ class Stage3Extractor(object):
         for field_name, field_values in self._getgroups(lines).items():
             field_name = self._out_name(field_name, prefix='participant_')
             # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
-            yield field_name, values
+            yield field_name, field_values
 
     def _extract_incident_characteristics(self, soup):
         div = self._find_div_with_title('Incident Characteristics', soup)
@@ -90,7 +92,7 @@ class Stage3Extractor(object):
         # List attributes
         lines = [li.text for li in div.select('li')]
         for field_name, field_values in self._getgroups(lines).items():
-            field_name = self._out_name(key, prefix='gun_')
+            field_name = self._out_name(field_name, prefix='gun_')
             # TODO: Ensure that 'values', which is a list, can be serialized properly by DataFrame.to_csv().
             yield field_name, field_values
 
