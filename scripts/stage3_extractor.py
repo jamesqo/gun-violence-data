@@ -131,7 +131,7 @@ class Stage3Extractor(object):
 
     def _extract_location_fields(self, soup, ctx):
         def describes_city_and_state(line):
-            return line.startswith(ctx.city_or_county) and line.endswith(ctx.state)
+            return ',' in line and line.startswith(ctx.city_or_county) and line.endswith(ctx.state)
 
         def describes_address(line):
             return line == ctx.address
