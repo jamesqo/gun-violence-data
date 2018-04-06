@@ -22,12 +22,6 @@ DISTRICT_FIELDNAMES = sorted([
     'state_house_district'
 ])
 
-# This is just a best guess. There are some address values like "Northwest 16th Street and Northwest Avenue L"
-# that are just too hard to detect without writing code for a bunch of different cases.
-def _guess_is_address(line):
-    return re.match(r'^[0-9]+[0-9a-z-]*\s', line, re.I) or \
-           re.match(r'\s(st\.?|street|rd\.?|road|dr\.?|drive|blvd\.?|boulevard|ave\.?|avenue)$', line, re.I)
-
 def _find_div_with_title(title, soup):
     common_parent = soup.select_one('#block-system-main')
     header = common_parent.find('h2', string=title)
@@ -37,6 +31,7 @@ def _out_name(in_name, prefix=''):
     return prefix + in_name.lower().replace(' ', '_') # e.g. 'Age Group' -> 'participant_age_group'
 
 def _getgroups(lines):
+    # TODO: Enforce that all groups have the same number of values, or do something.
     groups = defaultdict(list)
     for line in lines:
         if not line:
@@ -75,10 +70,10 @@ class Stage3Extractor(object):
     def __init__(self):
         pass
 
-    def extract_fields(self, text):
+    def extract_fields(self, text, ctx):
         soup = BeautifulSoup(text, features='html5lib')
 
-        location_fields = self._extract_location_fields(soup)
+        location_fields = self._extract_location_fields(soup, ctx)
         participant_fields = self._extract_participant_fields(soup)
         incident_characteristics = self._extract_incident_characteristics(soup)
         notes = self._extract_notes(soup)
@@ -96,19 +91,27 @@ class Stage3Extractor(object):
                *_normalize(district_fields, DISTRICT_FIELDNAMES)
                )
 
-    def _extract_location_fields(self, soup):
+    def _extract_location_fields(self, soup, ctx):
+        def describes_city_and_state(line):
+            return line.startswith(ctx.city_or_county) and line.endswith(ctx.state)
+
+        def describes_address(line):
+            return line == ctx.address
+
         div = _find_div_with_title('Location', soup)
         if div is None:
             return
 
         for span in div.select('span'):
             text = span.text
+            if not text:
+                continue
             match = re.match(r'^Geolocation: (.*), (.*)$', text)
             if match:
                 latitude, longitude = float(match.group(1)), float(match.group(2))
                 yield Field('latitude', latitude)
                 yield Field('longitude', longitude)
-            elif re.match(r'^(.*), (.*)$', text) or _guess_is_address(text):
+            elif describes_city_and_state(text) or describes_address(text):
                 # Nothing to be done. City, state, and address fields are already included in the stage2 dataset.
                 pass
             else:

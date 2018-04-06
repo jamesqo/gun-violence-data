@@ -46,19 +46,33 @@ def add_incident_id(df):
         assert incident_url.startswith(PREFIX)
         return int(incident_url[len(PREFIX):])
 
-    df['incident_id'] = df['incident_url'].apply(extract_id)
+    df.insert(0, 'incident_id', df['incident_url'].apply(extract_id))
     return df
 
-async def add_incident_url_fields(df, args):
+async def add_fields_from_incident_url(df, args):
+    def field_name(lst):
+        assert len(set([field.name for field in lst])) == 1
+        return lst[0].name
+
+    def field_values(lst):
+        return [field.value for field in lst]
+
     async with Stage3Session() as session:
-        tasks = df['incident_url'].apply(session.get_fields)
+        # list of coros of tuples of Fields
+        tasks = df.apply(session.get_fields_from_incident_url, axis=1)
         if args.sequential:
             # Note: This is suuuuuuper slow
             fields = [await task for task in tasks]
         else:
+            # list of tuples of Fields
             fields = await asyncio.gather(*tasks)
 
-    for field_name, field_values in zip(*fields):
+    # tuple of lists of Fields, where each list's Fields should have the same name
+    # if the extractor did its job correctly
+    fields = zip(*fields)
+    fields = [(field_name(lst), field_values(lst)) for lst in fields]
+
+    for field_name, field_values in fields:
         assert df.shape[0] == len(field_values)
         df[field_name] = field_values
 
@@ -70,7 +84,7 @@ async def main():
 
     df = load_stage2(args)
     df = add_incident_id(df)
-    df = await add_incident_url_fields(df, args)
+    df = await add_fields_from_incident_url(df, args)
 
     df.to_csv('stage3.csv',
               index=False,
