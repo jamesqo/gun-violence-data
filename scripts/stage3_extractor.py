@@ -42,6 +42,8 @@ def _getgroups(lines):
     return groups
 
 def _normalize(fields, all_field_names):
+    assert len(fields) == len(set(fields))
+
     fields = list(fields)
     if not fields:
         # zip(*[]) chokes, so special case for empty lists.
@@ -51,8 +53,11 @@ def _normalize(fields, all_field_names):
     # Also, add dummy ('field_name', None) fields for missing field names.
     fields = sorted(fields, key=lambda f: f.name)
 
-    field_names, field_values = zip(*fields)
-    field_names = set(field_names)
+    field_names = set(next(zip(*fields)))
+    assert len(field_names) == len(set(field_names)), "There are fields with the same name: {}".format(fields)
+    should_be_empty = field_names - set(all_field_names)
+    assert not should_be_empty, "We missed these field names: {}".format(should_be_empty)
+
     i = 0
     for name in all_field_names:
         if name not in field_names:
@@ -100,7 +105,7 @@ class Stage3Extractor(object):
                 latitude, longitude = float(match.group(1)), float(match.group(2))
                 yield Field('latitude', latitude)
                 yield Field('longitude', longitude)
-            elif re.match(r'^(.*), (.*)$', text) or re.match(r'^[0-9]+ ', text):
+            elif re.match(r'^(.*), (.*)$', text) or re.match(r'^[0-9]+', text):
                 # Nothing to be done. City, state, and address fields are already included in the stage2 dataset.
                 pass
             else:

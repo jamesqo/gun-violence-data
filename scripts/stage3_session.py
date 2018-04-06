@@ -28,4 +28,8 @@ class Stage3Session(object):
                 text = await resp.text()
             else:
                 raise NotImplementedError("Encountered unknown mime type {}".format(mimetype))
-        return self._extractor.extract_fields(text)
+        try:
+            return self._extractor.extract_fields(text)
+        except Exception:
+            print("ERROR! Extractor failed for the following webpage: {}".format(incident_url))
+            raise
