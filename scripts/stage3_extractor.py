@@ -5,22 +5,35 @@ from collections import defaultdict, namedtuple
 
 Field = namedtuple('Field', ['name', 'value'])
 
-LOCATION_FIELDNAMES = sorted(['latitude', 'longitude', 'location_description'])
-PARTICIPANT_FIELDNAMES = sorted([
+ALL_FIELD_NAMES = sorted([
+    'latitude',
+    'longitude',
+    'location_description',
+
     'participant_type',
     'participant_name',
     'participant_age',
     'participant_age_group',
     'participant_gender',
     'participant_status',
-    'participant_relationship'
-])
-GUNS_INVOLVED_FIELDNAMES = sorted(['n_guns_involved', 'gun_type', 'gun_stolen'])
-DISTRICT_FIELDNAMES = sorted([
+    'participant_relationship',
+
+    'incident_characteristics',
+
+    'notes',
+
+    'n_guns_involved',
+    'gun_type',
+    'gun_stolen',
+
+    'sources',
+
     'congressional_district',
     'state_senate_district',
     'state_house_district'
 ])
+
+NIL_FIELDS = [Field(name, None) for name in ALL_FIELD_NAMES]
 
 def _find_div_with_title(title, soup):
     common_parent = soup.select_one('#block-system-main')
@@ -58,29 +71,25 @@ def _getdicts(linegroups, apply=None):
             ds2[key][groupno] = value
     return ds2
 
-def _normalize(fields, all_field_names):
-    fields = list(fields)
-    if not fields:
-        # zip(*[]) chokes, so special case for empty lists.
-        return [Field(name, None) for name in all_field_names]
-
-    # Ensure that the fields for a particular field set are alphabetically ordered by field name.
+def _normalize(fields):
+    # Ensure that the fields are alphabetically ordered by field name.
     # Also, add dummy ('field_name', None) fields for missing field names.
     fields = sorted(fields, key=lambda f: f.name)
 
     field_names = set(next(zip(*fields)))
-    should_be_empty = field_names - set(all_field_names)
-    assert not should_be_empty, "We missed these field names: {}".format(should_be_empty)
+    should_be_empty = field_names - set(ALL_FIELD_NAMES)
+    assert not should_be_empty, "We're missing these field names: {}".format(should_be_empty)
 
     i = 0
-    for name in all_field_names:
+    for name in ALL_FIELD_NAMES:
         if name not in field_names:
             dummy = Field(name, None)
             fields.insert(i, dummy)
         i += 1
-    assert len(fields) == len(all_field_names), "{} doesn't match up with {}".format(fields, all_field_names)
 
-    return fields
+    assert len(fields) == len(ALL_FIELD_NAMES), "{} may have duplicate or missing fields"
+    # Since `fields` has a known length, it's more appropriate to use a tuple.
+    return tuple(fields)
 
 def _stringify_list(lst, sep='|'):
     violation = next((item for item in lst if sep in item), None)
@@ -112,15 +121,13 @@ class Stage3Extractor(object):
         sources = self._extract_sources(soup)
         district_fields = self._extract_district_fields(soup)
 
-        return (
-               *_normalize(location_fields, LOCATION_FIELDNAMES),
-               *_normalize(participant_fields, PARTICIPANT_FIELDNAMES),
-                Field('incident_characteristics', incident_characteristics),
-                Field('notes', notes),
-               *_normalize(guns_involved_fields, GUNS_INVOLVED_FIELDNAMES),
-                Field('sources', sources),
-               *_normalize(district_fields, DISTRICT_FIELDNAMES)
-               )
+        return _normalize([*location_fields,
+                           *participant_fields,
+                            Field('incident_characteristics', incident_characteristics),
+                            Field('notes', notes),
+                           *guns_involved_fields,
+                            Field('sources', sources),
+                           *district_fields])
 
     def _extract_location_fields(self, soup, ctx):
         def describes_city_and_state(line):

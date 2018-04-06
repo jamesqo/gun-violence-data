@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import traceback as tb
 
 from aiohttp import ClientSession, TCPConnector
 from aiohttp.hdrs import CONTENT_TYPE
@@ -30,6 +31,7 @@ class Stage3Session(object):
 
     def _log_extraction_failed(self, url):
         print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
+        tb.print_exc()
 
     async def _get(self, url, retry_limit=5, retry_wait=10):
         resp = await self._sess.get(url)

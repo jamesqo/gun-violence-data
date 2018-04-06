@@ -6,6 +6,7 @@ import logging as log
 import pandas as pd
 
 from argparse import ArgumentParser
+from stage3_extractor import NIL_FIELDS
 from stage3_session import Stage3Session
 
 STAGE2_OUTPUT = 'stage2.csv'
@@ -63,8 +64,10 @@ async def add_fields_from_incident_url(df, args):
     async with Stage3Session(limit_per_host=args.conn_limit) as session:
         # list of coros of tuples of Fields
         tasks = df.apply(session.get_fields_from_incident_url, axis=1)
+        # list of (tuples of Fields) and (exceptions)
+        fields = await asyncio.gather(*tasks, return_exceptions=True)
         # list of tuples of Fields
-        fields = await asyncio.gather(*tasks)
+        fields = [x if isinstance(x, tuple) else NIL_FIELDS for x in fields]
 
     # tuple of lists of Fields, where each list's Fields should have the same name
     # if the extractor did its job correctly
