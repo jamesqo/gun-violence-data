@@ -1,3 +1,5 @@
+import sys
+
 from aiohttp import ClientSession
 from aiohttp.hdrs import CONTENT_TYPE
 
@@ -16,6 +18,10 @@ class Stage3Session(object):
 
     async def get_fields(self, incident_url):
         async with self._sess.get(incident_url) as resp:
+            if resp.status >= 400:
+                print("ERROR! Failed GET request to {}".format(incident_url), file=sys.stderr)
+                resp.raise_for_status()
+
             ctype = resp.headers.get(CONTENT_TYPE, '').lower()
             mimetype = ctype[:ctype.find(';')]
             if mimetype in ('text/htm', 'text/html'):

@@ -36,7 +36,11 @@ class Stage3Extractor(object):
     def _getgroups(self, lines):
         groups = defaultdict(list)
         for line in lines:
-            key, value = line[:line.find(':')], line[line.find(':') + 2:]
+            if not line:
+                continue
+            index = line.find(':')
+            assert index != -1
+            key, value = line[:index], line[index + 2:]
             groups[key].append(value)
         return groups
 
@@ -84,7 +88,7 @@ class Stage3Extractor(object):
 
         # n_guns_involved
         p_text = div.select_one('p').text
-        match = re.match(r'^([0-9]+) guns involved.$')
+        match = re.match(r'^([0-9]+) guns? involved.$', p_text)
         assert match, "<p> text did not match expected pattern: {}".format(p_text)
         n_guns_involved = int(match.group(1))
         yield 'n_guns_involved', n_guns_involved
@@ -108,7 +112,8 @@ class Stage3Extractor(object):
 
         # The text we want to scrape is orphaned (no direct parent element), so we can't get at it directly.
         # Fortunately, each important line is followed by a <br> element, so we can use that to our advantage.
-        lines = [br.previousSibling.text.strip() for br in div.select('br')]
+        # NB: The orphaned text elements are of type 'NavigableString'
+        lines = [str(br.previousSibling).strip() for br in div.select('br')]
         for key, values in self._getgroups(lines).items():
             assert len(values) == 1 # It would be strange if the incident took place in more than 1 congressional district
             yield self._out_name(key), values[0]

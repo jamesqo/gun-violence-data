@@ -27,6 +27,12 @@ def parse_args():
         dest='csv_fname',
         default=STAGE2_OUTPUT,
     )
+    parser.add_argument(
+        '--sequential',
+        help="run http requests sequentially instead of asynchronously for deterministic behavior (-> easier debugging)",
+        action='store_true',
+        dest='sequential',
+    )
     return parser.parse_args()
 
 def load_stage2(args):
@@ -43,10 +49,14 @@ def add_incident_id(df):
     df['incident_id'] = df['incident_url'].apply(extract_id)
     return df
 
-async def add_incident_url_fields(df):
+async def add_incident_url_fields(df, args):
     async with Stage3Session() as session:
         tasks = df['incident_url'].apply(session.get_fields)
-        fields = await asyncio.gather(*tasks)
+        if args.sequential:
+            # Note: This is suuuuuuper slow
+            fields = [await task for task in tasks]
+        else:
+            fields = await asyncio.gather(*tasks)
     for field_name, field_values in zip(*fields):
         assert df.shape[0] == len(field_values)
         df[field_name] = field_values
@@ -58,7 +68,7 @@ async def main():
 
     df = load_stage2(args)
     df = add_incident_id(df)
-    df = await add_incident_url_fields(df)
+    df = await add_incident_url_fields(df, args)
 
     df.to_csv('stage3.csv',
               index=False,
