@@ -36,6 +36,10 @@ async def main():
     df = add_incident_id(df)
     df = await add_incident_url_fields(df)
 
+    df.to_csv('stage3.csv',
+              index=False,
+              encoding='utf-8')
+
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     try:
