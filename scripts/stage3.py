@@ -57,9 +57,11 @@ async def add_incident_url_fields(df, args):
             fields = [await task for task in tasks]
         else:
             fields = await asyncio.gather(*tasks)
+
     for field_name, field_values in zip(*fields):
         assert df.shape[0] == len(field_values)
         df[field_name] = field_values
+
     return df
 
 async def main():
