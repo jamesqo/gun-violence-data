@@ -1,5 +1,6 @@
 aiohttp
 beautifulsoup4
+numpy
 pandas
 python-dateutil
 selenium

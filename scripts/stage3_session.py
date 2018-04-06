@@ -1,4 +1,5 @@
 import asyncio
+import numpy as np
 import sys
 import traceback as tb
 
@@ -33,7 +34,13 @@ class Stage3Session(object):
         print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
         tb.print_exc()
 
-    async def _get(self, url, retry_limit=5, retry_wait=10):
+    def _compute_wait(self, wait_mean, wait_factor):
+        log_wait_mean = np.log(wait_mean, wait_factor)
+        fuzz = np.random.standard_normal(size=1)[0]
+        return int(np.ceil(wait_factor ** (log_wait_mean + fuzz)))
+
+    # Note: retry_limit=0 means no limit.
+    async def _get(self, url, retry_limit=0, retry_wait_mean=5, wait_factor=2):
         resp = await self._sess.get(url)
         status = resp.status
         if retry_limit == 1 or status < 400:
@@ -43,11 +50,16 @@ class Stage3Session(object):
             return resp
 
         # Server error, try again.
+        retry_wait = self._compute_wait(retry_wait_mean, wait_factor)
+        self._log_retry(url, resp.status, retry_wait)
         async with resp: # Dispose of the response immediately.
             pass
-        self._log_retry(url, resp.status, retry_wait)
         await asyncio.sleep(retry_wait)
-        return await self._get(url, retry_limit - 1, retry_wait)
+
+        assert retry_limit != 1
+        new_retry_limit = 0 if retry_limit == 0 else retry_limit - 1
+        new_retry_wait_mean = retry_wait_mean * wait_factor
+        return await self._get(url, new_retry_limit, new_retry_wait_mean, wait_factor)
 
     async def get_fields_from_incident_url(self, row):
         incident_url = row['incident_url']
