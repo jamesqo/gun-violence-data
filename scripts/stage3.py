@@ -21,6 +21,14 @@ def parse_args():
         default=log.WARNING,
     )
     parser.add_argument(
+        '-l', '--limit',
+        help="limit the number of simultaneous connections aiohttp makes to gunviolencearchive.org",
+        action='store',
+        dest='conn_limit',
+        type=int,
+        default=-1,
+    )
+    parser.add_argument(
         '-m', '--mock',
         help="read in mock csv file for easier debugging",
         action='store',
@@ -57,7 +65,7 @@ async def add_fields_from_incident_url(df, args):
     def field_values(lst):
         return [field.value for field in lst]
 
-    async with Stage3Session() as session:
+    async with Stage3Session(limit_per_host=args.conn_limit) as session:
         # list of coros of tuples of Fields
         tasks = df.apply(session.get_fields_from_incident_url, axis=1)
         if args.sequential:

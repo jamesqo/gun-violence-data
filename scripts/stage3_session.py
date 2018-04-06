@@ -1,7 +1,7 @@
 import asyncio
 import sys
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, TCPConnector
 from aiohttp.hdrs import CONTENT_TYPE
 from collections import namedtuple
 
@@ -10,11 +10,13 @@ from stage3_extractor import Stage3Extractor
 Context = namedtuple('Context', ['address', 'city_or_county', 'state'])
 
 class Stage3Session(object):
-    def __init__(self):
+    def __init__(self, **kwargs):
         self._extractor = Stage3Extractor()
+        self._conn_options = kwargs
 
     async def __aenter__(self):
-        self._sess = await ClientSession().__aenter__()
+        conn = TCPConnector(**self._conn_options)
+        self._sess = await ClientSession(connector=conn).__aenter__()
         return self
 
     async def __aexit__(self, type, value, tb):
