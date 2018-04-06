@@ -66,8 +66,12 @@ async def add_fields_from_incident_url(df, args):
         tasks = df.apply(session.get_fields_from_incident_url, axis=1)
         # list of (tuples of Fields) and (exceptions)
         fields = await asyncio.gather(*tasks, return_exceptions=True)
-        # list of tuples of Fields
-        fields = [x if isinstance(x, tuple) else NIL_FIELDS for x in fields]
+
+    incident_url_fields_missing = [isinstance(x, Exception) for x in fields]
+    df['incident_url_fields_missing'] = incident_url_fields_missing
+
+    # list of tuples of Fields
+    fields = [NIL_FIELDS if isinstance(x, Exception) else x for x in fields]
 
     # tuple of lists of Fields, where each list's Fields should have the same name
     # if the extractor did its job correctly
