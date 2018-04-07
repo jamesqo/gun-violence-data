@@ -93,17 +93,17 @@ def _normalize(fields):
     # Since `fields` has a known length, it's more appropriate to use a tuple.
     return tuple(fields)
 
-def _stringify_list(lst, sep='|'):
+def _stringify_list(lst, sep='||'):
     violation = next((item for item in lst if sep in item), None)
-    assert violation is None, "List item {} contains the separator character {}".format(repr(violation), repr(sep))
+    assert violation is None, "List item {} contains the separator string {}".format(repr(violation), repr(sep))
     return sep.join(lst)
 
-def _stringify_dict(d, insep=':', outsep='|'):
+def _stringify_dict(d, insep='::', outsep='||'):
     keys, values = list(map(str, d.keys())), list(map(str, d.values()))
     key_violation = next((key for key in keys if insep in key or outsep in key), None)
     value_violation = next((value for value in values if insep in value or outsep in value), None)
     assert key_violation is None and value_violation is None, \
-           "Key {} or value {} contains the separator character(s) {} or {}".format(
+           "Key {} or value {} contains the separator string(s) {} or {}".format(
                repr(key_violation), repr(value_violation), repr(insep), repr(outsep))
 
     return outsep.join([insep.join([k, v]) for k, v in zip(keys, values)])
