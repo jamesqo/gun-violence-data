@@ -41,19 +41,22 @@ class Stage3Session(object):
 
     # Note: retry_limit=0 means no limit.
     async def _get(self, url, retry_limit=0, retry_wait_mean=5, wait_factor=2):
-        resp = await self._sess.get(url)
-        status = resp.status
-        if retry_limit == 1 or status < 400:
-            return resp
-        elif 400 <= status < 500:
-            self._log_failed_request(url)
-            return resp
+        try:
+            resp = await self._sess.get(url)
+            status = resp.status
+            if retry_limit == 1 or status < 400:
+                return resp
+            elif 400 <= status < 500:
+                self._log_failed_request(url)
+                return resp
+        except TimeoutError:
+            status = '<timed out>'
 
         # Server error, try again.
-        retry_wait = _compute_wait(retry_wait_mean, wait_factor)
-        self._log_retry(url, resp.status, retry_wait)
         async with resp: # Dispose of the response immediately.
             pass
+        retry_wait = _compute_wait(retry_wait_mean, wait_factor)
+        self._log_retry(url, status, retry_wait)
         await asyncio.sleep(retry_wait)
 
         assert retry_limit != 1
