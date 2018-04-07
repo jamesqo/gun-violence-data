@@ -106,7 +106,7 @@ def _stringify_dict(d, insep=':', outsep='|'):
 
     return outsep.join([insep.join([k, v]) for k, v in zip(keys, values)])
 
-class Stage3Extractor(object):
+class Stage2Extractor(object):
     def __init__(self):
         pass
 

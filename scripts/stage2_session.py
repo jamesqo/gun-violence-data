@@ -8,7 +8,7 @@ from aiohttp import ClientSession, TCPConnector
 from aiohttp.hdrs import CONTENT_TYPE
 from collections import namedtuple
 
-from stage3_extractor import Stage3Extractor
+from stage2_extractor import Stage2Extractor
 
 Context = namedtuple('Context', ['address', 'city_or_county', 'state'])
 
@@ -17,9 +17,9 @@ def _compute_wait(wait_mean, wait_factor):
     fuzz = np.random.standard_normal(size=1)[0]
     return int(np.ceil(wait_factor ** (log_wait_mean + fuzz)))
 
-class Stage3Session(object):
+class Stage2Session(object):
     def __init__(self, **kwargs):
-        self._extractor = Stage3Extractor()
+        self._extractor = Stage2Extractor()
         self._conn_options = kwargs
 
     async def __aenter__(self):
