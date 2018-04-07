@@ -150,7 +150,7 @@ class Stage2Extractor(object):
                 yield Field('latitude', latitude)
                 yield Field('longitude', longitude)
             elif describes_city_and_state(text) or describes_address(text):
-                # Nothing to be done. City, state, and address fields are already included in the stage2 dataset.
+                # Nothing to be done. City, state, and address fields are already included in the stage1 dataset.
                 pass
             else:
                 yield Field('location_description', text)
