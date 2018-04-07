@@ -89,7 +89,7 @@ class Stage2Session(object):
 
     async def get_fields_from_incident_url(self, row):
         try:
-            await self._get_fields_from_incident_url(row)
+            return await self._get_fields_from_incident_url(row)
         except:
             # Passing return_exceptions=True to asyncio.gather() destroys the ability
             # to print them once they're caught, so do that manually here.

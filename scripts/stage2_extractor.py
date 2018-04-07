@@ -33,7 +33,7 @@ ALL_FIELD_NAMES = sorted([
     'state_house_district'
 ])
 
-NIL_FIELDS = [Field(name, None) for name in ALL_FIELD_NAMES]
+NIL_FIELDS = tuple([Field(name, None) for name in ALL_FIELD_NAMES])
 
 def _find_div_with_title(title, soup):
     common_parent = soup.select_one('#block-system-main')
