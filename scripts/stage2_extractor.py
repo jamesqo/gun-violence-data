@@ -3,6 +3,8 @@ import re
 from bs4 import BeautifulSoup
 from collections import defaultdict, namedtuple
 
+from log_utils import log_first_call
+
 Field = namedtuple('Field', ['name', 'value'])
 
 ALL_FIELD_NAMES = sorted([
@@ -111,6 +113,7 @@ class Stage2Extractor(object):
         pass
 
     def extract_fields(self, text, ctx):
+        log_first_call()
         soup = BeautifulSoup(text, features='html5lib')
 
         location_fields = self._extract_location_fields(soup, ctx)

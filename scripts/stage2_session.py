@@ -8,11 +8,13 @@ from aiohttp import ClientSession, TCPConnector
 from aiohttp.hdrs import CONTENT_TYPE
 from collections import namedtuple
 
+from log_utils import log_first_call
 from stage2_extractor import Stage2Extractor
 
 Context = namedtuple('Context', ['address', 'city_or_county', 'state'])
 
 def _compute_wait(average_wait, rng_base):
+    log_first_call()
     log_average_wait = math.log(average_wait, rng_base)
     fuzz = np.random.standard_normal(size=1)[0]
     return int(np.ceil(rng_base ** (log_average_wait + fuzz)))
@@ -52,11 +54,12 @@ class Stage2Session(object):
         except asyncio.TimeoutError:
             if retry_limit == 1:
                 raise
-            status = '<timed out>'
+            resp, status = None, '<timed out>'
 
         # Server error, try again.
-        async with resp: # Dispose of the response immediately.
-            pass
+        if resp is not None:
+            async with resp: # Dispose of the response immediately.
+                pass
         wait = _compute_wait(average_wait, rng_base)
         self._log_retry(url, status, wait)
         await asyncio.sleep(wait)
@@ -89,6 +92,7 @@ class Stage2Session(object):
             raise
 
     async def get_fields_from_incident_url(self, row):
+        log_first_call()
         try:
             return await self._get_fields_from_incident_url(row)
         except:

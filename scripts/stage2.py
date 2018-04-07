@@ -6,6 +6,8 @@ import logging as log
 import pandas as pd
 
 from argparse import ArgumentParser
+
+from log_utils import log_first_call
 from stage2_extractor import NIL_FIELDS
 from stage2_session import Stage2Session
 
@@ -44,11 +46,13 @@ def parse_args():
     return parser.parse_args()
 
 def load_stage1(args):
+    log_first_call()
     return pd.read_csv(args.input_fname,
                        parse_dates=['date'],
                        encoding='utf-8')
 
 def add_incident_id(df):
+    log_first_call()
     def extract_id(incident_url):
         PREFIX = 'http://www.gunviolencearchive.org/incident/'
         assert incident_url.startswith(PREFIX)
@@ -58,6 +62,7 @@ def add_incident_id(df):
     return df
 
 async def add_fields_from_incident_url(df, args):
+    log_first_call()
     def field_name(lst):
         assert len(set([field.name for field in lst])) == 1
         return lst[0].name
