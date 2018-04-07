@@ -4,6 +4,7 @@
 import asyncio
 import logging as log
 import pandas as pd
+import sys
 
 from argparse import ArgumentParser
 
@@ -12,18 +13,25 @@ from stage2_extractor import NIL_FIELDS
 from stage2_session import Stage2Session
 
 def parse_args():
-    parser = ArgumentParser()
+    targets_specific_month = False
+    if len(sys.argv) > 1:
+        parts = sys.argv[1].split('-')
+        if len(parts) == 2: # e.g. '02-2014'
+            targets_specific_month = True
+            del sys.argv[1]
 
-    parser.add_argument(
-        'input_fname',
-        metavar='INPUT',
-        help="path to input file",
-    )
-    parser.add_argument(
-        'output_fname',
-        metavar='OUTPUT',
-        help="path to output file"
-    )
+    parser = ArgumentParser()
+    if not targets_specific_month:
+        parser.add_argument(
+            'input_fname',
+            metavar='INPUT',
+            help="path to input file",
+        )
+        parser.add_argument(
+            'output_fname',
+            metavar='OUTPUT',
+            help="path to output file"
+        )
 
     parser.add_argument(
         '-d', '--debug',
@@ -43,7 +51,12 @@ def parse_args():
         default=0, # represents unlimited number of connections
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if targets_specific_month:
+        month, year = map(int, parts)
+        args.input_fname = 'stage1.{:02d}.{:04d}.csv'.format(month, year)
+        args.output_fname = 'stage2.{:02d}.{:04d}.csv'.format(month, year)
+    return args
 
 def load_stage1(args):
     log_first_call()

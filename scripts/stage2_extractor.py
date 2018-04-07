@@ -41,7 +41,7 @@ def _find_div_with_title(title, soup):
     common_parent = soup.select_one('#block-system-main')
     header = common_parent.find('h2', string=title)
     return header.parent if header else None
-    
+
 def _out_name(in_name, prefix=''):
     return prefix + in_name.lower().replace(' ', '_') # e.g. 'Age Group' -> 'participant_age_group'
 
