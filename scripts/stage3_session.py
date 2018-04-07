@@ -1,4 +1,5 @@
 import asyncio
+import math
 import numpy as np
 import sys
 import traceback as tb
@@ -10,6 +11,11 @@ from collections import namedtuple
 from stage3_extractor import Stage3Extractor
 
 Context = namedtuple('Context', ['address', 'city_or_county', 'state'])
+
+def _compute_wait(wait_mean, wait_factor):
+    log_wait_mean = math.log(wait_mean, wait_factor)
+    fuzz = np.random.standard_normal(size=1)[0]
+    return int(np.ceil(wait_factor ** (log_wait_mean + fuzz)))
 
 class Stage3Session(object):
     def __init__(self, **kwargs):
@@ -32,12 +38,6 @@ class Stage3Session(object):
 
     def _log_extraction_failed(self, url):
         print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
-        tb.print_exc()
-
-    def _compute_wait(self, wait_mean, wait_factor):
-        log_wait_mean = np.log(wait_mean, wait_factor)
-        fuzz = np.random.standard_normal(size=1)[0]
-        return int(np.ceil(wait_factor ** (log_wait_mean + fuzz)))
 
     # Note: retry_limit=0 means no limit.
     async def _get(self, url, retry_limit=0, retry_wait_mean=5, wait_factor=2):
@@ -50,7 +50,7 @@ class Stage3Session(object):
             return resp
 
         # Server error, try again.
-        retry_wait = self._compute_wait(retry_wait_mean, wait_factor)
+        retry_wait = _compute_wait(retry_wait_mean, wait_factor)
         self._log_retry(url, resp.status, retry_wait)
         async with resp: # Dispose of the response immediately.
             pass
@@ -61,7 +61,7 @@ class Stage3Session(object):
         new_retry_wait_mean = retry_wait_mean * wait_factor
         return await self._get(url, new_retry_limit, new_retry_wait_mean, wait_factor)
 
-    async def get_fields_from_incident_url(self, row):
+    async def _get_fields_from_incident_url(self, row):
         incident_url = row['incident_url']
         resp = await self._get(incident_url)
         async with resp:
@@ -80,6 +80,15 @@ class Stage3Session(object):
                       state=row['state'])
         try:
             return self._extractor.extract_fields(text, ctx)
-        except Exception:
+        except:
             self._log_extraction_failed(incident_url)
+            raise
+
+    async def get_fields_from_incident_url(self, row):
+        try:
+            await self._get_fields_from_incident_url(row)
+        except:
+            # Passing return_exceptions=True to asyncio.gather() destroys the ability
+            # to print them once they're caught, so do that manually here.
+            tb.print_exc()
             raise
