@@ -144,7 +144,7 @@ class Stage3Extractor(object):
             text = span.text
             if not text:
                 continue
-            match = re.match(r'^Geolocation: (.*), (.*)$', text)
+            match = re.match(r'^Geolocation:\s+(.*),\s+(.*)$', text)
             if match:
                 latitude, longitude = float(match.group(1)), float(match.group(2))
                 yield Field('latitude', latitude)
@@ -181,7 +181,7 @@ class Stage3Extractor(object):
 
         # n_guns_involved
         p_text = div.select_one('p').text
-        match = re.match(r'^([0-9]+) guns? involved.$', p_text)
+        match = re.match(r'^([0-9]+)\s+guns?\s+involved.$', p_text)
         assert match, "<p> text did not match expected pattern: {}".format(p_text)
         n_guns_involved = int(match.group(1))
         yield Field('n_guns_involved', n_guns_involved)
