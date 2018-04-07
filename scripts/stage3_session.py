@@ -40,7 +40,7 @@ class Stage3Session(object):
         print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
 
     # Note: retry_limit=0 means no limit.
-    async def _get(self, url, retry_limit=0, retry_wait_mean=5, wait_factor=2):
+    async def _get(self, url, retry_limit=0, retry_wait_mean=5, wait_factor=2, mean_limit=100):
         try:
             resp = await self._sess.get(url)
             status = resp.status
@@ -61,8 +61,8 @@ class Stage3Session(object):
 
         assert retry_limit != 1
         new_retry_limit = 0 if retry_limit == 0 else retry_limit - 1
-        new_retry_wait_mean = retry_wait_mean * wait_factor
-        return await self._get(url, new_retry_limit, new_retry_wait_mean, wait_factor)
+        new_retry_wait_mean = min(retry_wait_mean * wait_factor, mean_limit)
+        return await self._get(url, new_retry_limit, new_retry_wait_mean, wait_factor, mean_limit)
 
     async def _get_fields_from_incident_url(self, row):
         incident_url = row['incident_url']
