@@ -12,10 +12,10 @@ from stage2_extractor import Stage2Extractor
 
 Context = namedtuple('Context', ['address', 'city_or_county', 'state'])
 
-def _compute_wait(wait_mean, wait_factor):
-    log_wait_mean = math.log(wait_mean, wait_factor)
+def _compute_wait(average_wait, rng_base):
+    log_average_wait = math.log(average_wait, rng_base)
     fuzz = np.random.standard_normal(size=1)[0]
-    return int(np.ceil(wait_factor ** (log_wait_mean + fuzz)))
+    return int(np.ceil(rng_base ** (log_average_wait + fuzz)))
 
 class Stage2Session(object):
     def __init__(self, **kwargs):
@@ -40,7 +40,7 @@ class Stage2Session(object):
         print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
 
     # Note: retry_limit=0 means no limit.
-    async def _get(self, url, retry_limit=0, retry_wait_mean=5, wait_factor=2, mean_limit=100):
+    async def _get(self, url, retry_limit=0, average_wait=10, rng_base=2):
         try:
             resp = await self._sess.get(url)
             status = resp.status
@@ -49,20 +49,21 @@ class Stage2Session(object):
             elif 400 <= status < 500:
                 self._log_failed_request(url)
                 return resp
-        except TimeoutError:
+        except asyncio.TimeoutError:
+            if retry_limit == 1:
+                raise
             status = '<timed out>'
 
         # Server error, try again.
         async with resp: # Dispose of the response immediately.
             pass
-        retry_wait = _compute_wait(retry_wait_mean, wait_factor)
-        self._log_retry(url, status, retry_wait)
-        await asyncio.sleep(retry_wait)
+        wait = _compute_wait(average_wait, rng_base)
+        self._log_retry(url, status, wait)
+        await asyncio.sleep(wait)
 
         assert retry_limit != 1
         new_retry_limit = 0 if retry_limit == 0 else retry_limit - 1
-        new_retry_wait_mean = min(retry_wait_mean * wait_factor, mean_limit)
-        return await self._get(url, new_retry_limit, new_retry_wait_mean, wait_factor, mean_limit)
+        return await self._get(url, new_retry_limit, average_wait, rng_base)
 
     async def _get_fields_from_incident_url(self, row):
         incident_url = row['incident_url']
