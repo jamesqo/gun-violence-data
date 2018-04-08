@@ -55,7 +55,7 @@ class Stage2Session(object):
     def _log_extraction_failed(self, url):
         print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
 
-    async def _get(self, url, average_wait=20, rng_base=2):
+    async def _get(self, url, average_wait=10, rng_base=2):
         while True:
             try:
                 resp = await self._sess.get(url)

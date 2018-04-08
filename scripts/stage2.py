@@ -34,14 +34,6 @@ def parse_args():
         )
 
     parser.add_argument(
-        '-c', '--chunk-size',
-        help="specify max number of coroutines passed at once to asyncio.gather()",
-        action='store',
-        dest='chunk_size',
-        type=int,
-        default=100,
-    )
-    parser.add_argument(
         '-d', '--debug',
         help="show debug information",
         action='store_const',
@@ -92,22 +84,10 @@ async def add_fields_from_incident_url(df, args):
         return [field.value for field in lst]
 
     async with Stage2Session(limit_per_host=args.conn_limit) as session:
-        '''
         # list of coros of tuples of Fields
         tasks = df.apply(session.get_fields_from_incident_url, axis=1)
         # list of (tuples of Fields) and (exceptions)
         fields = await asyncio.gather(*tasks, return_exceptions=True)
-        '''
-
-        fields = []
-        nrows, step = df.shape[0], args.chunk_size
-        for i, start in enumerate(range(0, nrows, step)):
-            print("Processing chunk #{}".format(i + 1))
-            end = min(start + step, nrows)
-            part = df[start:end]
-            tasks = part.apply(session.get_fields_from_incident_url, axis=1)
-            fields.extend(await asyncio.gather(*tasks, return_exceptions=True))
-        assert len(fields) == nrows
 
     incident_url_fields_missing = [isinstance(x, Exception) for x in fields]
     df['incident_url_fields_missing'] = incident_url_fields_missing
