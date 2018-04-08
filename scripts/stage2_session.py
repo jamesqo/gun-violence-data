@@ -8,8 +8,8 @@ import traceback as tb
 from aiohttp import ClientResponse, ClientSession, TCPConnector
 from aiohttp.client_exceptions import ClientOSError
 from aiohttp.hdrs import CONTENT_TYPE
+from asyncio import CancelledError
 from collections import namedtuple
-from concurrent.futures import CancelledError
 
 from log_utils import log_first_call
 from stage2_extractor import Stage2Extractor
@@ -31,7 +31,7 @@ def _status_from_exception(exc):
     if isinstance(exc, asyncio.TimeoutError):
         return '<timed out>'
 
-    raise RuntimeError("Unknown exception: {}".format(repr(exc)))
+    return None
 
 async def _dispose_response(resp):
     async with resp:
@@ -59,27 +59,23 @@ class Stage2Session(object):
     def _log_extraction_failed(self, url):
         print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
 
-    def _get_no_retry(self, url):
-        try:
-            return self._sess.get(url), None
-        except (CancelledError, ClientOSError, asyncio.TimeoutError) as exc:
-            return None, exc
-
-    async def _get(self, url, average_wait=10, rng_base=2):
+    async def _get(self, url, average_wait=20, rng_base=2):
         while True:
-            resp, exc = self._get_no_retry(url)
-            if resp is not None:
+            try:
+                resp = await self._sess.get(url)
+            except Exception as exc:
+                status = _status_from_exception(exc)
+                if status is None:
+                    raise
+            else:
                 status = resp.status
-                if status < 400:
+                if status < 400: # Suceeded
                     return resp
-                elif 400 <= status < 500:
+                elif 400 <= status < 500: # Client error
                     self._log_failed_request(url)
                     return resp
-                # At this point status >= 500, so it's a server error. Retry.
-                _dispose_response(resp)
-            else:
-                assert exc is not None
-                status = _status_from_exception(exc)
+                # It's a server error. Dispose the response and retry.
+                await _dispose_response(resp)
 
             wait = _compute_wait(average_wait, rng_base)
             self._log_retry(url, status, wait)

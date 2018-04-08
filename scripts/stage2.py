@@ -48,7 +48,7 @@ def parse_args():
         action='store',
         dest='conn_limit',
         type=int,
-        default=0, # represents unlimited number of connections
+        default=20,
     )
 
     args = parser.parse_args()
