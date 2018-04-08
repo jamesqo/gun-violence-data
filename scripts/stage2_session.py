@@ -6,7 +6,7 @@ import sys
 import traceback as tb
 
 from aiohttp import ClientResponse, ClientSession, TCPConnector
-from aiohttp.client_exceptions import ClientOSError
+from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from aiohttp.hdrs import CONTENT_TYPE
 from asyncio import CancelledError
 from collections import namedtuple
@@ -23,9 +23,13 @@ def _compute_wait(average_wait, rng_base):
     return int(np.ceil(rng_base ** (log_average_wait + fuzz)))
 
 def _status_from_exception(exc):
+    windows = platform.system() == 'Windows'
     if isinstance(exc, CancelledError):
         return '<canceled>'
-    if isinstance(exc, ClientOSError) and platform.system() == 'Windows' and exc.errno == 10054:
+    if isinstance(exc, ClientConnectorError) and windows and exc.os_error.errno == 11001:
+        # gaierror: getaddrinfo failed (Not connected to Internet)
+        return '<disconnected>'
+    if isinstance(exc, ClientOSError) and windows and exc.errno == 10054:
         # WinError: An existing connection was forcibly closed by the remote host
         return '<conn closed>'
     if isinstance(exc, asyncio.TimeoutError):
@@ -55,7 +59,7 @@ class Stage2Session(object):
     def _log_extraction_failed(self, url):
         print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
 
-    async def _get(self, url, average_wait=20, rng_base=2):
+    async def _get(self, url, average_wait=10, rng_base=2):
         while True:
             try:
                 resp = await self._sess.get(url)
