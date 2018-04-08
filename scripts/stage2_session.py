@@ -9,6 +9,7 @@ from aiohttp import ClientSession, TCPConnector
 from aiohttp.client_exceptions import ClientOSError
 from aiohttp.hdrs import CONTENT_TYPE
 from collections import namedtuple
+from concurrent.futures import CancelledError
 
 from log_utils import log_first_call
 from stage2_extractor import Stage2Extractor
@@ -45,6 +46,7 @@ class Stage2Session(object):
 
     # Note: retry_limit=0 means no limit.
     async def _get(self, url, retry_limit=0, average_wait=10, rng_base=2):
+        resp = None
         try:
             resp = await self._sess.get(url)
             status = resp.status
@@ -56,13 +58,15 @@ class Stage2Session(object):
         except asyncio.TimeoutError:
             if retry_limit == 1:
                 raise
-            resp, status = None, '<timed out>'
+            status = '<timed out>'
         except ClientOSError as exc:
             if platform.system() == 'Windows' and exc.errno == 10054:
                 # WinError: An existing connection was forcibly closed by the remote host
-                resp, status = None, '<conn closed>'
+                status = '<conn closed>'
             else:
                 raise
+        except CancelledError as exc:
+            status = '<canceled>'
 
         # Server error, try again.
         if resp is not None:
