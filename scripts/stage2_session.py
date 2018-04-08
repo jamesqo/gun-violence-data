@@ -57,7 +57,7 @@ class Stage2Session(object):
             if retry_limit == 1:
                 raise
             resp, status = None, '<timed out>'
-        except ClientOSError exc:
+        except ClientOSError as exc:
             if platform.system() == 'Windows' and exc.errno == 10054:
                 # WinError: An existing connection was forcibly closed by the remote host
                 resp, status = None, '<conn closed>'
