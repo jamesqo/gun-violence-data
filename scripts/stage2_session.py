@@ -31,11 +31,7 @@ def _status_from_exception(exc):
     if isinstance(exc, asyncio.TimeoutError):
         return '<timed out>'
 
-    return None
-
-async def _dispose_response(resp):
-    async with resp:
-        pass
+    return ''
 
 class Stage2Session(object):
     def __init__(self, **kwargs):
@@ -65,7 +61,7 @@ class Stage2Session(object):
                 resp = await self._sess.get(url)
             except Exception as exc:
                 status = _status_from_exception(exc)
-                if status is None:
+                if not status:
                     raise
             else:
                 status = resp.status
@@ -75,7 +71,7 @@ class Stage2Session(object):
                     self._log_failed_request(url)
                     return resp
                 # It's a server error. Dispose the response and retry.
-                await _dispose_response(resp)
+                await resp.release()
 
             wait = _compute_wait(average_wait, rng_base)
             self._log_retry(url, status, wait)
@@ -85,9 +81,7 @@ class Stage2Session(object):
         incident_url = row['incident_url']
         resp = await self._get(incident_url)
         async with resp:
-            if resp.status >= 400:
-                resp.raise_for_status()
-
+            resp.raise_for_status()
             ctype = resp.headers.get(CONTENT_TYPE, '').lower()
             mimetype = ctype[:ctype.find(';')]
             if mimetype in ('text/htm', 'text/html'):
