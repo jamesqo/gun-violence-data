@@ -5,7 +5,7 @@ import platform
 import sys
 import traceback as tb
 
-from aiohttp import ClientSession, TCPConnector
+from aiohttp import ClientResponse, ClientSession, TCPConnector
 from aiohttp.client_exceptions import ClientOSError
 from aiohttp.hdrs import CONTENT_TYPE
 from collections import namedtuple
@@ -21,6 +21,21 @@ def _compute_wait(average_wait, rng_base):
     log_average_wait = math.log(average_wait, rng_base)
     fuzz = np.random.standard_normal(size=1)[0]
     return int(np.ceil(rng_base ** (log_average_wait + fuzz)))
+
+def _status_from_exception(exc):
+    if isinstance(exc, CancelledError):
+        return '<canceled>'
+    if isinstance(exc, ClientOSError) and platform.system() == 'Windows' and exc.errno == 10054:
+        # WinError: An existing connection was forcibly closed by the remote host
+        return '<conn closed>'
+    if isinstance(exc, asyncio.TimeoutError):
+        return '<timed out>'
+
+    raise RuntimeError("Unknown exception: {}".format(repr(exc)))
+
+async def _dispose_response(resp):
+    async with resp:
+        pass
 
 class Stage2Session(object):
     def __init__(self, **kwargs):
@@ -44,41 +59,31 @@ class Stage2Session(object):
     def _log_extraction_failed(self, url):
         print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
 
-    # Note: retry_limit=0 means no limit.
-    async def _get(self, url, retry_limit=0, average_wait=10, rng_base=2):
-        resp = None
+    def _get_no_retry(self, url):
         try:
-            resp = await self._sess.get(url)
-            status = resp.status
-            if retry_limit == 1 or status < 400:
-                return resp
-            elif 400 <= status < 500:
-                self._log_failed_request(url)
-                return resp
-        except asyncio.TimeoutError:
-            if retry_limit == 1:
-                raise
-            status = '<timed out>'
-        except ClientOSError as exc:
-            if platform.system() == 'Windows' and exc.errno == 10054:
-                # WinError: An existing connection was forcibly closed by the remote host
-                status = '<conn closed>'
+            return self._sess.get(url), None
+        except (CancelledError, ClientOSError, asyncio.TimeoutError) as exc:
+            return None, exc
+
+    async def _get(self, url, average_wait=10, rng_base=2):
+        while True:
+            resp, exc = self._get_no_retry(url)
+            if resp is not None:
+                status = resp.status
+                if status < 400:
+                    return resp
+                elif 400 <= status < 500:
+                    self._log_failed_request(url)
+                    return resp
+                # At this point status >= 500, so it's a server error. Retry.
+                _dispose_response(resp)
             else:
-                raise
-        except CancelledError as exc:
-            status = '<canceled>'
+                assert exc is not None
+                status = _status_from_exception(exc)
 
-        # Server error, try again.
-        if resp is not None:
-            async with resp: # Dispose of the response immediately.
-                pass
-        wait = _compute_wait(average_wait, rng_base)
-        self._log_retry(url, status, wait)
-        await asyncio.sleep(wait)
-
-        assert retry_limit != 1
-        new_retry_limit = 0 if retry_limit == 0 else retry_limit - 1
-        return await self._get(url, new_retry_limit, average_wait, rng_base)
+            wait = _compute_wait(average_wait, rng_base)
+            self._log_retry(url, status, wait)
+            await asyncio.sleep(wait)
 
     async def _get_fields_from_incident_url(self, row):
         incident_url = row['incident_url']
