@@ -1,10 +1,12 @@
 import asyncio
 import math
 import numpy as np
+import platform
 import sys
 import traceback as tb
 
 from aiohttp import ClientSession, TCPConnector
+from aiohttp.client_exceptions import ClientOSError
 from aiohttp.hdrs import CONTENT_TYPE
 from collections import namedtuple
 
@@ -55,6 +57,12 @@ class Stage2Session(object):
             if retry_limit == 1:
                 raise
             resp, status = None, '<timed out>'
+        except ClientOSError exc:
+            if platform.system() == 'Windows' and exc.errno == 10054:
+                # WinError: An existing connection was forcibly closed by the remote host
+                resp, status = None, '<conn closed>'
+            else:
+                raise
 
         # Server error, try again.
         if resp is not None:
