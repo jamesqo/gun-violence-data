@@ -89,7 +89,7 @@ def _normalize(fields):
             fields.insert(i, dummy)
         i += 1
 
-    assert len(fields) == len(ALL_FIELD_NAMES), "{} may have duplicate or missing fields"
+    assert len(fields) == len(ALL_FIELD_NAMES), "{} may have duplicate or missing fields".format(fields)
     # Since `fields` has a known length, it's more appropriate to use a tuple.
     return tuple(fields)
 
