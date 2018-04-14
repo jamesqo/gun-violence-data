@@ -4,6 +4,10 @@
 
 This repository contains data for all recorded gun violence incidents in the US between January 2013 and March 2018, inclusive.
 
+## Why was it created?
+
+There's currently a lack of large and easily-accessible amounts of detailed data on gun violence. This project aims to change that; we make a record of more than 260k gun violence incidents, with detailed information about each incident, available in CSV format. We hope that this will make it easier for data scientists and statisticians to study gun violence and predict future trends.
+
 ## Where did you get the data?
 
 The data was downloaded from [gunviolencearchive.org](http://www.gunviolencearchive.org/). From the organization's description:
@@ -95,3 +99,7 @@ The incident described [here](http://www.gunviolencearchive.org/incident/1081561
 ## Additional notes
 
 - The list of incidents from 2013 is not exhaustive; only 279 incidents from that year were catalogued.
+
+## Contact us
+
+If you're interested in using this dataset for your research, feel free to contact us and ask questions / let us know about your work at gunviolencedata@gmail.com. Please note that we are not affiliated with gunviolencearchive.org in any way.
