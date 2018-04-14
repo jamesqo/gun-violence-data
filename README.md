@@ -1,4 +1,4 @@
-# Gun Violence Archive Data
+# Gun Violence Data
 
 ## What is this repository?
 
