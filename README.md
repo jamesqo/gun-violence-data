@@ -26,7 +26,7 @@ Because GVA limits the number of incidents that are returned from a single query
 
 [Click here] to download the tarball the data is stored in. You can decompress the tarball using the [7-Zip] utility on Windows, or via the `tar` executable on macOS/Linux.
 
-[Click here]: DATA_01-2013_03-2018
+[Click here]: DATA_01-2013_03-2018.tar.gz
 [7-Zip]: https://www.7-zip.org/
 
 ## Data format
