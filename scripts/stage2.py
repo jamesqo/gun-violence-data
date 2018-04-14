@@ -3,14 +3,22 @@
 
 import asyncio
 import logging as log
+import numpy as np
 import pandas as pd
 import sys
 
+from aiohttp.client_exceptions import ClientResponseError
 from argparse import ArgumentParser
 
 from log_utils import log_first_call
 from stage2_extractor import NIL_FIELDS
 from stage2_session import Stage2Session
+
+SCHEMA = {
+    'congressional_district': np.float64,
+    'state_house_district': np.float64,
+    'state_senate_district': np.float64,
+}
 
 def parse_args():
     targets_specific_month = False
@@ -68,6 +76,7 @@ def parse_args():
 def load_input(args):
     log_first_call()
     return pd.read_csv(args.input_fname,
+                       dtype=SCHEMA,
                        parse_dates=['date'],
                        encoding='utf-8')
 
@@ -106,6 +115,8 @@ async def add_fields_from_incident_url(df, args, predicate=None):
     try:
         incident_url_fields_missing = [isinstance(x, Exception) for x in fields]
         subset['incident_url_fields_missing'] = incident_url_fields_missing
+        
+        not_found = [isinstance(x, ClientResponseError) and x.code == 404 for x in fields]
 
         # list of tuples of Fields
         fields = [NIL_FIELDS if isinstance(x, Exception) else x for x in fields]
@@ -118,11 +129,14 @@ async def add_fields_from_incident_url(df, args, predicate=None):
         for field_name, field_values in fields:
             assert subset.shape[0] == len(field_values)
             subset[field_name] = field_values
+
+        subset = subset.astype(SCHEMA)
     finally:
         pd.options.mode.chained_assignment = 'warn'
 
     if predicate is not None:
         df.loc[subset.index] = subset
+        df.drop(index=subset.index[not_found], inplace=True)
 
     return df
 

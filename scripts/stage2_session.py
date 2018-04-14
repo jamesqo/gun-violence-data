@@ -6,7 +6,7 @@ import sys
 import traceback as tb
 
 from aiohttp import ClientResponse, ClientSession, TCPConnector
-from aiohttp.client_exceptions import ClientOSError
+from aiohttp.client_exceptions import ClientOSError, ClientResponseError
 from aiohttp.hdrs import CONTENT_TYPE
 from asyncio import CancelledError
 from collections import namedtuple
@@ -46,14 +46,11 @@ class Stage2Session(object):
     async def __aexit__(self, type, value, tb):
         await self._sess.__aexit__(type, value, tb)
 
-    def _log_failed_request(self, url):
-        print("ERROR! Failed GET request to {}".format(url), file=sys.stderr)
-
     def _log_retry(self, url, status, retry_wait):
         print("GET request to {} failed with status {}. Trying again in {}s...".format(url, status, retry_wait), file=sys.stderr)
 
     def _log_extraction_failed(self, url):
-        print("ERROR! Extractor failed for the following webpage: {}".format(url), file=sys.stderr)
+        print("ERROR! Extraction failed for the following url: {}".format(url), file=sys.stderr)
 
     async def _get(self, url, average_wait=10, rng_base=2):
         while True:
@@ -65,10 +62,7 @@ class Stage2Session(object):
                     raise
             else:
                 status = resp.status
-                if status < 400: # Suceeded
-                    return resp
-                elif 400 <= status < 500: # Client error
-                    self._log_failed_request(url)
+                if status < 500: # Suceeded or client error
                     return resp
                 # It's a server error. Dispose the response and retry.
                 await resp.release()
@@ -92,18 +86,19 @@ class Stage2Session(object):
         ctx = Context(address=row['address'],
                       city_or_county=row['city_or_county'],
                       state=row['state'])
-        try:
-            return self._extractor.extract_fields(text, ctx)
-        except:
-            self._log_extraction_failed(incident_url)
-            raise
+        return self._extractor.extract_fields(text, ctx)
 
     async def get_fields_from_incident_url(self, row):
         log_first_call()
         try:
             return await self._get_fields_from_incident_url(row)
-        except:
+        except Exception as exc:
             # Passing return_exceptions=True to asyncio.gather() destroys the ability
             # to print them once they're caught, so do that manually here.
-            tb.print_exc()
+            if isinstance(exc, ClientResponseError) and exc.code == 404:
+                # 404 is handled gracefully by us so this isn't too newsworthy.
+                pass
+            else:
+                self._log_extraction_failed(row['incident_url'])
+                tb.print_exc()
             raise

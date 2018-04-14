@@ -189,3 +189,4 @@ tags
 # End of https://www.gitignore.io/api/vim,emacs,python,visualstudiocode
 
 *.log
+stage3.csv

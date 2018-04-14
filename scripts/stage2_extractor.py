@@ -134,10 +134,13 @@ class Stage2Extractor(object):
 
     def _extract_location_fields(self, soup, ctx):
         def describes_city_and_state(line):
-            return ',' in line and line.startswith(ctx.city_or_county) and line.endswith(ctx.state)
+            return ',' in line and line.endswith(ctx.state) # and line.startswith(ctx.city_or_county)
 
         def describes_address(line):
-            return line == ctx.address
+            # The address on the incident page usually, but not always, matches the address on the query page.
+            return line == ctx.address or \
+                re.search(r'^[0-9]+[0-9a-z-]*\b', line, re.I) or \
+                re.search(r'\b(st|street|rd|road|dr|drive|blvd|boulevard|ave|avenue|hwy|highway)\.?$', line, re.I)
 
         div = _find_div_with_title('Location', soup)
         if div is None:
@@ -147,7 +150,7 @@ class Stage2Extractor(object):
             text = span.text
             if not text:
                 continue
-            match = re.match(r'^Geolocation:\s+(.*),\s+(.*)$', text)
+            match = re.search(r'^Geolocation:\s+(.*),\s+(.*)$', text)
             if match:
                 latitude, longitude = float(match.group(1)), float(match.group(2))
                 yield Field('latitude', latitude)
@@ -184,7 +187,7 @@ class Stage2Extractor(object):
 
         # n_guns_involved
         p_text = div.select_one('p').text
-        match = re.match(r'^([0-9]+)\s+guns?\s+involved.$', p_text)
+        match = re.search(r'^([0-9]+)\s+guns?\s+involved.$', p_text)
         assert match, "<p> text did not match expected pattern: {}".format(p_text)
         n_guns_involved = int(match.group(1))
         yield Field('n_guns_involved', n_guns_involved)
