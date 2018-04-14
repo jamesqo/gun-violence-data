@@ -7,8 +7,16 @@ from glob import glob
 
 STAGE2_GLOB = 'stage2.*.csv'
 
+SCHEMA = {
+    'congressional_district': np.float64,
+    'state_house_district': np.float64,
+    'state_senate_district': np.float64,
+    'n_guns_involved': np.float64,
+}
+
 def load_csv(csv_fname):
     return pd.read_csv(csv_fname,
+                       dtype=SCHEMA,
                        parse_dates=['date'],
                        encoding='utf-8')
 
@@ -32,6 +40,7 @@ def main():
     giant_df = pd.concat(dfs, ignore_index=True)
     giant_df.to_csv('stage3.csv',
                     index=False,
+                    float_format='%g',
                     encoding='utf-8')
 
 if __name__ == '__main__':

@@ -18,6 +18,7 @@ SCHEMA = {
     'congressional_district': np.float64,
     'state_house_district': np.float64,
     'state_senate_district': np.float64,
+    'n_guns_involved': np.float64,
 }
 
 def parse_args():

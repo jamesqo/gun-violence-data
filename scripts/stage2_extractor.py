@@ -109,9 +109,6 @@ def _stringify_dict(d, insep='::', outsep='||'):
     return outsep.join([insep.join([k, v]) for k, v in zip(keys, values)])
 
 class Stage2Extractor(object):
-    def __init__(self):
-        pass
-
     def extract_fields(self, text, ctx):
         log_first_call()
         soup = BeautifulSoup(text, features='html5lib')
