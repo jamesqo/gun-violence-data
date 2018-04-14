@@ -6,6 +6,7 @@ import logging as log
 import pandas as pd
 import sys
 
+from aiohttp.client_exceptions import ClientResponseError
 from argparse import ArgumentParser
 
 from log_utils import log_first_call
@@ -90,6 +91,12 @@ async def add_fields_from_incident_url(df, args, predicate=None):
     def field_values(lst):
         return [field.value for field in lst]
 
+    def status(err):
+        assert isinstance(err, ClientResponseError)
+        # ClientResponseError.code is deprecated in favor of status and unavailable in newer versions of aiohttp,
+        # but status didn't exist until very recently.
+        return err.status if hasattr(err, 'status') else err.code
+
     subset = df if predicate is None else df.loc[predicate]
     if len(subset) == 0:
         # No work to do
@@ -106,6 +113,8 @@ async def add_fields_from_incident_url(df, args, predicate=None):
     try:
         incident_url_fields_missing = [isinstance(x, Exception) for x in fields]
         subset['incident_url_fields_missing'] = incident_url_fields_missing
+        
+        not_found = [isinstance(x, ClientResponseError) and status(x) == 404 for x in fields]
 
         # list of tuples of Fields
         fields = [NIL_FIELDS if isinstance(x, Exception) else x for x in fields]
@@ -123,6 +132,7 @@ async def add_fields_from_incident_url(df, args, predicate=None):
 
     if predicate is not None:
         df.loc[subset.index] = subset
+        df.drop(index=subset.index[not_found], inplace=True)
 
     return df
 
