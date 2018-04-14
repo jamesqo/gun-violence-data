@@ -24,9 +24,9 @@ Because GVA limits the number of incidents that are returned from a single query
 
 **Stage 3:** The entries were sorted in order of increasing date, then merged into a single CSV file.
 
-[Click here] to download the tarball the data is stored in. You can decompress the tarball using the [7-Zip] utility on Windows, or via the `tar` executable on macOS/Linux.
+**[Click here]** to download the tarball the data is stored in. You can decompress the tarball using the [7-Zip] utility on Windows, or via the `tar` executable on macOS/Linux.
 
-[Click here]: DATA_01-2013_03-2018.tar.gz
+[Click here]: DATA_01-2013_03-2018.tar.gz?raw=true
 [7-Zip]: https://www.7-zip.org/
 
 ## Data format
