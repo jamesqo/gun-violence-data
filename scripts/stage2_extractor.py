@@ -137,7 +137,12 @@ class Stage2Extractor(object):
             return ',' in line and line.startswith(ctx.city_or_county) and line.endswith(ctx.state)
 
         def describes_address(line):
-            return line == ctx.address
+            if ctx.address:
+                return line == ctx.address
+            else:
+                # Best guess
+                return re.match(r'^[0-9]+[0-9a-z-]*\s+', line, re.I) or \
+                       re.match(r'\s+(st\.?|street|rd\.?|road|dr\.?|drive|blvd\.?|boulevard|ave\.?|avenue)$', line, re.I)
 
         div = _find_div_with_title('Location', soup)
         if div is None:

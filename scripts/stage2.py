@@ -127,13 +127,12 @@ async def add_fields_from_incident_url(df, args, predicate=None):
         for field_name, field_values in fields:
             assert subset.shape[0] == len(field_values)
             subset[field_name] = field_values
-
-        subset.drop(index=subset.index[not_found], inplace=True)
     finally:
         pd.options.mode.chained_assignment = 'warn'
 
     if predicate is not None:
         df.loc[subset.index] = subset
+        df.drop(index=subset.index[not_found], inplace=True)
 
     return df
 
