@@ -134,7 +134,7 @@ class Stage2Extractor(object):
 
     def _extract_location_fields(self, soup, ctx):
         def describes_city_and_state(line):
-            return ',' in line and line.startswith(ctx.city_or_county) and line.endswith(ctx.state)
+            return ',' in line and line.endswith(ctx.state) # and line.startswith(ctx.city_or_county)
 
         def describes_address(line):
             # The address on the incident page usually, but not always, matches the address on the query page.
