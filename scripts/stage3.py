@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # stage 3: sorting and merging data
 
+import numpy as np
 import pandas as pd
 
 from glob import glob

@@ -28,7 +28,7 @@ done
 # 2013 doesn't need any amending since it doesn't have any incident_url_fields_missing instances.
 
 # Update all csvs we successfully amended (i.e. those without incident_url_fields_missing = True).
-for am in "$(grep -rL ',True,' --include='*\.am' .)"; do
+for am in $(grep -rL ',True,' --include='*\.am' .); do
     csv="${am:2:-3}" # Note: :2 is because grep prepends an extra './'
     mv "$am" "$csv"
 done
