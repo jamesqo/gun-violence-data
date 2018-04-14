@@ -30,9 +30,16 @@ def parse_args():
         parser.add_argument(
             'output_fname',
             metavar='OUTPUT',
-            help="path to output file"
+            help="path to output file. " \
+                 "if --amend is specified, this is interpreted as a suffix and output is written to the path (INPUT + OUTPUT)."
         )
 
+    parser.add_argument(
+        '-a', '--amend',
+        help="amend existing stage2 file by populating missing values",
+        action='store_true',
+        dest='amend',
+    )
     parser.add_argument(
         '-d', '--debug',
         help="show debug information",
@@ -58,7 +65,7 @@ def parse_args():
         args.output_fname = 'stage2.{:02d}.{:04d}.csv'.format(month, year)
     return args
 
-def load_stage1(args):
+def load_input(args):
     log_first_call()
     return pd.read_csv(args.input_fname,
                        parse_dates=['date'],
@@ -74,7 +81,7 @@ def add_incident_id(df):
     df.insert(0, 'incident_id', df['incident_url'].apply(extract_id))
     return df
 
-async def add_fields_from_incident_url(df, args):
+async def add_fields_from_incident_url(df, args, predicate=None):
     log_first_call()
     def field_name(lst):
         assert len(set([field.name for field in lst])) == 1
@@ -83,26 +90,39 @@ async def add_fields_from_incident_url(df, args):
     def field_values(lst):
         return [field.value for field in lst]
 
+    subset = df if predicate is None else df.loc[predicate]
+    if len(subset) == 0:
+        # No work to do
+        return df
+
     async with Stage2Session(limit_per_host=args.conn_limit) as session:
         # list of coros of tuples of Fields
-        tasks = df.apply(session.get_fields_from_incident_url, axis=1)
+        tasks = subset.apply(session.get_fields_from_incident_url, axis=1)
         # list of (tuples of Fields) and (exceptions)
         fields = await asyncio.gather(*tasks, return_exceptions=True)
 
-    incident_url_fields_missing = [isinstance(x, Exception) for x in fields]
-    df['incident_url_fields_missing'] = incident_url_fields_missing
+    # Temporarily suppress Pandas' SettingWithCopyWarning
+    pd.options.mode.chained_assignment = None
+    try:
+        incident_url_fields_missing = [isinstance(x, Exception) for x in fields]
+        subset['incident_url_fields_missing'] = incident_url_fields_missing
 
-    # list of tuples of Fields
-    fields = [NIL_FIELDS if isinstance(x, Exception) else x for x in fields]
+        # list of tuples of Fields
+        fields = [NIL_FIELDS if isinstance(x, Exception) else x for x in fields]
 
-    # tuple of lists of Fields, where each list's Fields should have the same name
-    # if the extractor did its job correctly
-    fields = zip(*fields)
-    fields = [(field_name(lst), field_values(lst)) for lst in fields]
+        # tuple of lists of Fields, where each list's Fields should have the same name
+        # if the extractor did its job correctly
+        fields = zip(*fields)
+        fields = [(field_name(lst), field_values(lst)) for lst in fields]
 
-    for field_name, field_values in fields:
-        assert df.shape[0] == len(field_values)
-        df[field_name] = field_values
+        for field_name, field_values in fields:
+            assert subset.shape[0] == len(field_values)
+            subset[field_name] = field_values
+    finally:
+        pd.options.mode.chained_assignment = 'warn'
+
+    if predicate is not None:
+        df.loc[subset.index] = subset
 
     return df
 
@@ -110,11 +130,17 @@ async def main():
     args = parse_args()
     log.basicConfig(level=args.log_level)
 
-    df = load_stage1(args)
-    df = add_incident_id(df)
-    df = await add_fields_from_incident_url(df, args)
+    df = load_input(args)
 
-    df.to_csv(args.output_fname,
+    if args.amend:
+        output_fname = args.input_fname + args.output_fname
+        df = await add_fields_from_incident_url(df, args, predicate=df['incident_url_fields_missing'])
+    else:
+        output_fname = args.output_fname
+        df = add_incident_id(df)
+        df = await add_fields_from_incident_url(df, args)
+
+    df.to_csv(output_fname,
               index=False,
               float_format='%g',
               encoding='utf-8')

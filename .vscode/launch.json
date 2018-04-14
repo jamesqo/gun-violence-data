@@ -11,7 +11,7 @@
             "stopOnEntry": true,
             "pythonPath": "${config:python.pythonPath}",
             "program": "${workspaceFolder}/scripts/stage2.py",
-            "args": [ "-d", "stage1.2013.csv", "stage2.2013.csv" ],
+            "args": [ "stage2.03.2014.csv", ".am", "--amend", "-d" ],
             "cwd": "${workspaceFolder}",
             "env": {},
             "envFile": "${workspaceFolder}/.env",
