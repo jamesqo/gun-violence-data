@@ -10,9 +10,11 @@ There's currently a lack of large and easily-accessible amounts of detailed data
 
 ## Where did you get the data?
 
-The data was downloaded from [gunviolencearchive.org](http://www.gunviolencearchive.org/). From the organization's description:
+The data was downloaded from [Gun Violence Archive's website](http://www.gunviolencearchive.org/). From the organization's description:
 
 > Gun Violence Archive (GVA) is a not for profit corporation formed in 2013 to provide free online public access to accurate information about gun-related violence in the United States. GVA will collect and check for accuracy, comprehensive information about gun-related violence in the U.S. and then post and disseminate it online.
+
+All credits for the data go to Gun Violence Archive.
 
 ## How did you get the data?
 
@@ -95,6 +97,9 @@ The incident described [here](http://www.gunviolencearchive.org/incident/1081561
 ## Additional notes
 
 - The list of incidents from 2013 is not exhaustive; only 279 incidents from that year were catalogued.
+- Please provide credit to and notify Gun Violence Archive if you intend to use this dataset in your project. [Read their terms here.](http://www.gunviolencearchive.org/about)
+
+  > All we ask is to please provide proper credit for use of Gun Violence Archive data and advise us of its use.
 
 ## Contact us
 
