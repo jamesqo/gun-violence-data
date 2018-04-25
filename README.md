@@ -97,6 +97,11 @@ The incident described [here](http://www.gunviolencearchive.org/incident/1081561
 ## Additional notes
 
 - The list of incidents from 2013 is not exhaustive; only 279 incidents from that year were catalogued.
+- 2 incidents were manually removed from the dataset: the [Las Vegas mass shooting incident](http://www.gunviolencearchive.org/download/las-vegas-shooting.pdf) and [incident 1081885](http://www.gunviolencearchive.org/incident/1081885).
+  - The Las Vegas mass shooting had to be removed because information about the incident was stored in a PDF, which caused scraping to fail since the scraper expects an HTML webpage.
+  - Incident 1081885 had to be removed because the location details were not parsing nicely.
+  - PRs to manually add back either/both of these incidents are welcome. (Please edit the `stage1` files in `intermediate/`)
+- Known issue: the `address` field should be required, but is missing for ~16k incidents.
 - Please provide credit to and notify Gun Violence Archive if you intend to use this dataset in your project. [Read their terms here.](http://www.gunviolencearchive.org/about)
 
   > All we ask is to please provide proper credit for use of Gun Violence Archive data and advise us of its use.
