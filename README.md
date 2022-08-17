@@ -1,4 +1,5 @@
 # Gun Violence Data
+# Bauer
 
 ## What is this repository?
 
