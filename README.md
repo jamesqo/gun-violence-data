@@ -70,7 +70,7 @@ The data is stored in a single CSV file sorted by increasing date. It has the fo
 Important notes:
 
 - Each list is encoded as a string with separator `||`. For example, `"a||b"` represents `['a', 'b']`.
-- Each dict is encoded as a string with outer separator `||` and inner separator `::`. For example, `0::a, 1::b` represents `{0: 'a', 1: 'b'}`.
+- Each dict is encoded as a string with outer separator `||` and inner separator `::`. For example, `0::a||1::b` represents `{0: 'a', 1: 'b'}`.
 - The "gun ID" and "participant ID" are numbers specific to a given incident that refer to a particular gun/person involved in that incident. For example, this:
 
   ```
